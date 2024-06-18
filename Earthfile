@@ -29,7 +29,8 @@ build:
 
 
 docker-image:
-  FROM ghcr.io/graalvm/jdk-community:22
+  # FROM ghcr.io/graalvm/jdk-community:22
+  FROM eclipse-temurin:21.0.3_9-jre-ubi9-minimal
   COPY +build/out.jar ./
   COPY --dir +build/dist ./
   ENV FRONTEND_DISTRIBUTION_PATH=dist
