@@ -151,7 +151,8 @@ def addContact = {
 def messagesNearby(positionObservable: Observable[dom.Position]) = div(
   div("On the ground"),
   positionObservable.map { position =>
-    val rpcLocation: rpc.Location.GCS = rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude)
+    val rpcLocation: rpc.Location.GCS =
+      rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
     RpcClient.call
       .getMessagesAtLocation(rpcLocation)
       .map(
@@ -188,7 +189,10 @@ def messagesOnDevice(refreshTrigger: RxEvent[Unit], positionObservable: Observab
               "drop",
               onClick.doEffect(
                 RpcClient.call
-                  .dropMessage(message.messageId, rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude))
+                  .dropMessage(
+                    message.messageId,
+                    rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude),
+                  )
                   .void
               ),
             )
