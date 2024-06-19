@@ -63,11 +63,14 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
 
   def registerDevice(deviceSecret: String): IO[Unit] = IO {
     magnum.connect(ds) {
+      db.DeviceProfileRepo.findByIndexOnDeviceSecret(deviceSecret) match {
+        case Some(_) => ()
+        case None =>
+          val _ =
       sql"insert into ${db.DeviceProfile.Table}(${db.DeviceProfile.Table.deviceSecret}, ${db.DeviceProfile.Table.deviceAddress}) values (${db.DeviceProfile.Creator(
           deviceSecret = deviceSecret,
           deviceAddress = generateSecureDeviceAddress(10),
-        )}) on conflict(${db.DeviceProfile.Table.deviceSecret}) do nothing".update
-        .run()
+              )})".update.run()
     }
   }
 
