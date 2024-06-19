@@ -110,7 +110,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitude_accuracy)
         )
         val messageIsOnDevice = message.onDevice.contains(deviceProfile.deviceId)
-        scribe.info(s"message $messageId is on device: $messageIsOnDevice")
+        scribe.info(s"message $messageId is on device: $messageIsOnDevice, moving to ${targetLocation.toString}")
         if (messageIsOnDevice) {
           db.MessageRepo.update(message.copy(onDevice = None, atLocation = Some(targetLocation.locationId)))
           db.MessageHistoryRepo.insert(
