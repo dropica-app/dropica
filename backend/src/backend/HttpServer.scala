@@ -51,7 +51,7 @@ private object ServerRoutes {
   def rpcRoutes(config: AppConfig): HttpRoutes[IO] = {
     import chameleon.ext.upickle.*
     HttpRpcRoutes.withRequest[String, IO] { (request: Request[IO]) =>
-      sloth.Router[String, IO].route[rpc.RpcApi](RpcApiImpl(config.dataSource, request))
+      sloth.Router[String, IO](RpcLogHandlerAnsi).route[rpc.RpcApi](RpcApiImpl(config.dataSource, request))
     }
   }
 

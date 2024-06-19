@@ -90,6 +90,8 @@ object backend extends AppScalaModule with DbCodegenModule {
     ivy"org.flywaydb:flyway-core::10.6.0", // migrations
     ivy"com.github.cornerman::keratin-authn-backend::${versions.authn}",
     ivy"io.github.arainko::ducktape::0.2.1",
+    ivy"com.lihaoyi::fansi:0.5.0",
+    ivy"com.lihaoyi::pprint:0.9.0",
   )
 }
 
