@@ -20,8 +20,17 @@ processes:
         # vite should start, even if the initial build failed
         condition: process_completed
 
-  mill-watch:
-    command: mill --color true --watch "{backend.runBackground,frontend.fastLinkJS}"
+  frontend:
+    command: mill --color true --watch frontend.fastLinkJS
+    env:
+      LOG_LEVEL:debug
+    depends_on:
+      mill-build:
+        # watch should start, even if the initial build failed
+        condition: process_completed
+
+  backend:
+    command: mill --color true --watch backend.runBackground
     env:
       LOG_LEVEL:debug
     depends_on:
