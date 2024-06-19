@@ -193,7 +193,7 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent
       val openDialog = Var(false)
       div(
         display.flex,
-        positionObservable.map(Some.apply).prepend(None).map { position =>
+        positionObservable.map(Some.apply).observable.prepend(None).map { position =>
           val rpcLocation: Option[rpc.Location.GCS] = position.map { position =>
             rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
           }
