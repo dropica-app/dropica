@@ -81,6 +81,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           db.MessageHistoryRepo.insert(
             db.MessageHistory.Creator(messageId = message.messageId, onDevice = Some(targetDeviceProfile.deviceId), atLocation = None)
           )
+          println(s"message $messageId sent to $targetDeviceAddress")
           true
         }.getOrElse(false)
       }
@@ -91,15 +92,19 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     IO {
       // you can only drop it, if it's on your device
       magnum.transact(ds) {
-        val message        = db.MessageRepo.findById(messageId).get
-        val targetLocation = db.LocationRepo.insertReturning(db.Location.Creator(location.lat, location.lon, location.altitude))
-        if (message.onDevice.contains(deviceProfile.deviceId)) {
+        val message           = db.MessageRepo.findById(messageId).get
+        val targetLocation    = db.LocationRepo.insertReturning(db.Location.Creator(location.lat, location.lon, location.altitude))
+        val messageIsOnDevice = message.onDevice.contains(deviceProfile.deviceId)
+        scribe.info(s"message $messageId is on device: $messageIsOnDevice")
+        if (messageIsOnDevice) {
           db.MessageRepo.update(message.copy(onDevice = None, atLocation = Some(targetLocation.locationId)))
           db.MessageHistoryRepo.insert(
             db.MessageHistory.Creator(messageId = message.messageId, onDevice = None, atLocation = Some(targetLocation.locationId))
           )
+          scribe.info(s"dropped $message at $location")
           true
         } else {
+          scribe.info(s"could not drop $message at $location")
           false
         }
       }

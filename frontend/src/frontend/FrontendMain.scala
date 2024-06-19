@@ -11,6 +11,7 @@ import org.scalajs.dom.window.localStorage
 import org.scalajs.dom
 import org.scalajs.dom.{window, Navigator, Position}
 import scala.scalajs.js
+import webcodegen.shoelace.SlCard.borderRadius
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
@@ -35,31 +36,21 @@ object Main extends IOApp.Simple {
       import webcodegen.shoelace.SlTab.*
       import webcodegen.shoelace.SlTabGroup.*
       import webcodegen.shoelace.SlTabPanel.*
-      div(
-        div(
-          "Location: ",
-          positionObservable.map(p =>
-            div(
-              table(
-                tr(td("time"), td(p.timestamp)),
-                tr(td("lat"), td(p.coords.latitude)),
-                tr(td("lon"), td(p.coords.longitude)),
-                // tr(td("acc"), td(p.coords.accuracy)),
-                // tr(td("alt"), td(p.coords.altitude)),
-                // tr(td("alt acc"), td(p.coords.altitudeAccuracy)),
-                // tr(td("heading"), td(p.coords.heading)),
-                // tr(td("speed"), td(p.coords.speed)),
-              )
-            )
-          ),
+      slTabGroup(
+        height := "100%",
+        VMod.attr("placement") := "bottom",
+        slTab("Ground", slotNav, panel := "ground"),
+        slTab("Device", slotNav, panel := "device"),
+        slTab("Contacts", slotNav, panel := "contacts"),
+        slTabPanel(
+          name := "ground",
+          messagesNearby(refreshTrigger, positionObservable),
         ),
-        slTabGroup(
-          slTab("Messages", slotNav, panel := "messages"),
-          slTab("Contacts", slotNav, panel := "contacts"),
-          slTabPanel(name := "messages", messagesOnDevice(refreshTrigger, positionObservable), createMessage(refreshTrigger)),
-          messagesNearby(positionObservable),
-          slTabPanel(name := "contacts", addContact, showDeviceAddress),
+        slTabPanel(
+          name := "device",
+          messagesOnDevice(refreshTrigger, positionObservable),
         ),
+        slTabPanel(name := "contacts", div(width := "100%", height := "100%", showDeviceAddress, addContact)),
         // camera,
       )
     }
@@ -148,22 +139,55 @@ def addContact = {
   )
 }
 
-def messagesNearby(positionObservable: Observable[dom.Position]) = div(
-  div("On the ground"),
-  positionObservable.map { position =>
+def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: Observable[dom.Position]) = div(
+  div(
+    positionObservable.map(p =>
+      div(
+        fontSize := "var(--sl-font-size-x-small)",
+        div("Location Accuracy (m): "),
+        table(
+          // tr(td("time"), td(p.timestamp)),
+          // tr(td("lat"), td(p.coords.latitude)),
+          // tr(td("lon"), td(p.coords.longitude)),
+          tr(td("acc"), td(p.coords.accuracy)),
+          tr(td("alt"), td(p.coords.altitude)),
+          // tr(td("heading"), td(p.coords.heading)),
+          // tr(td("speed"), td(p.coords.speed)),
+        ),
+      )
+    )
+  ),
+  positionObservable.sampleMillis(5000).map { position =>
     val rpcLocation: rpc.Location.GCS =
       rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
-    RpcClient.call
-      .getMessagesAtLocation(rpcLocation)
+    refreshTrigger
+      .asEffect(
+        RpcClient.call.getMessagesAtLocation(rpcLocation)
+      )
       .map(
         _.map(message =>
-          div(message.content, button("pick up", onClick.doEffect(RpcClient.call.pickupMessage(message.messageId, rpcLocation).void)))
+          renderMessage(
+            refreshTrigger,
+            message,
+            rpcLocation,
+            onClickEffect = RpcClient.call.pickupMessage(message.messageId, rpcLocation).void,
+          )
         )
       )
   },
 )
 
-def messagesOnDevice(refreshTrigger: RxEvent[Unit], positionObservable: Observable[dom.Position]) = {
+def renderMessage(refreshTrigger: VarEvent[Unit], message: rpc.Message, location: rpc.Location.GCS, onClickEffect: IO[Unit]) =
+  div(
+    padding := "16px",
+    margin := "8px",
+    borderRadius := "5px",
+    backgroundColor := "#eeeeee",
+    message.content,
+    onClick.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger,
+  )
+
+def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: Observable[dom.Position]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlSelect.{onSlFocus as _, onSlBlur as _, onSlAfterHide as _, open as _, *}
   import webcodegen.shoelace.SlOption.{value as _, *}
@@ -182,22 +206,21 @@ def messagesOnDevice(refreshTrigger: RxEvent[Unit], positionObservable: Observab
       val openDialog = Var(false)
       div(
         display.flex,
-        div(
-          message.content,
-          positionObservable.map(position =>
-            button(
-              "drop",
-              onClick.doEffect(
-                RpcClient.call
-                  .dropMessage(
-                    message.messageId,
-                    rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude),
-                  )
-                  .void
-              ),
-            )
-          ),
-        ),
+        positionObservable.map { position =>
+          val rpcLocation: rpc.Location.GCS =
+            rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
+          renderMessage(
+            refreshTrigger,
+            message,
+            rpcLocation,
+            onClickEffect = RpcClient.call
+              .dropMessage(
+                message.messageId,
+                rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude),
+              )
+              .void,
+          )
+        },
         slButton("Send to device", onClick.as(true) --> openDialog),
         slDialog(
           open <-- openDialog,
@@ -220,5 +243,6 @@ def messagesOnDevice(refreshTrigger: RxEvent[Unit], positionObservable: Observab
         ),
       )
     }),
+    createMessage(refreshTrigger),
   )
 }
