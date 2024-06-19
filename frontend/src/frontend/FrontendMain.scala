@@ -186,22 +186,27 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[d
           renderMessage(
             refreshTrigger,
             message,
-            rpcLocation,
-            onClickEffect = RpcClient.call.pickupMessage(message.messageId, rpcLocation).void,
+            onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, rpcLocation).void),
           )
         )
       )
   },
 )
 
-def renderMessage(refreshTrigger: VarEvent[Unit], message: rpc.Message, location: rpc.Location.GCS, onClickEffect: IO[Unit]) =
+def renderMessage(refreshTrigger: VarEvent[Unit], message: rpc.Message, onClickEffect: Option[IO[Unit]]) =
   div(
     padding := "16px",
     margin := "8px",
     borderRadius := "5px",
-    backgroundColor := "#eeeeee",
     message.content,
+    onClickEffect match {
+      case Some(onClickEffect) =>
+        VMod(
+          backgroundColor := "#eeeeee",
     onClick.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger,
+  )
+      case None => VMod.empty
+    },
   )
 
 def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[dom.Position]) = {
@@ -223,19 +228,15 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent
       val openDialog = Var(false)
       div(
         display.flex,
-        positionObservable.map { position =>
-          val rpcLocation: rpc.Location.GCS =
+        positionObservable.map(Some.apply).prepend(None).map { position =>
+          val rpcLocation: Option[rpc.Location.GCS] = position.map { position =>
             rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
+          }
+
           renderMessage(
             refreshTrigger,
             message,
-            rpcLocation,
-            onClickEffect = RpcClient.call
-              .dropMessage(
-                message.messageId,
-                rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude),
-              )
-              .void,
+            onClickEffect = rpcLocation.map(RpcClient.call.dropMessage(message.messageId, _).void),
           )
         },
         slButton("Send to device", onClick.as(true) --> openDialog),
