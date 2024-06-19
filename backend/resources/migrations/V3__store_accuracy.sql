@@ -2,6 +2,7 @@ alter table location rename to location_old;
 drop trigger location_insert;
 drop trigger location_update;
 drop trigger location_delete;
+delete from spatial_index;
 
 
 create table location(
