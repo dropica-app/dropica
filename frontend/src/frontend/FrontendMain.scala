@@ -24,15 +24,17 @@ object Main extends IOApp.Simple {
     localStorage.setItem("deviceSecret", deviceSecret)
     unlift(RpcClient.call.registerDevice(deviceSecret))
 
-    val positionObservable = Observable
-      .create[dom.Position] { observer =>
-        val watchId = window.navigator.geolocation.watchPosition(
-          position => observer.unsafeOnNext(position),
-          error => observer.unsafeOnError(Exception(error.message)),
-          js.Dynamic.literal(enableHighAccuracy = true, timeout = Double.PositiveInfinity, maximumAge = 0).asInstanceOf[PositionOptions],
-        )
-        Cancelable(() => window.navigator.geolocation.clearWatch(watchId))
-      }
+    val positionObservable = RxEvent.observable(
+      Observable
+        .create[dom.Position] { observer =>
+          val watchId = window.navigator.geolocation.watchPosition(
+            position => observer.unsafeOnNext(position),
+            error => observer.unsafeOnError(Exception(error.message)),
+            js.Dynamic.literal(enableHighAccuracy = true, timeout = Double.PositiveInfinity, maximumAge = 0).asInstanceOf[PositionOptions],
+          )
+          Cancelable(() => window.navigator.geolocation.clearWatch(watchId))
+        }
+    )
 
     // def getCurrentPositionPromise(options: PositionOptions): IO[Position] = IO.async_ { callback =>
     //   window.navigator.geolocation.getCurrentPosition(value => callback(Right(value)), error => callback(Left(Exception(error.message))))
@@ -154,7 +156,7 @@ def addContact = {
   )
 }
 
-def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: Observable[dom.Position]) = div(
+def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[dom.Position]) = div(
   div(
     positionObservable.map(p =>
       div(
@@ -172,7 +174,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: Observabl
       )
     )
   ),
-  positionObservable.sampleMillis(5000).map { position =>
+  positionObservable.transformRx(_.sampleMillis(3000)).map { position =>
     val rpcLocation: rpc.Location.GCS =
       rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
     refreshTrigger
@@ -202,7 +204,7 @@ def renderMessage(refreshTrigger: VarEvent[Unit], message: rpc.Message, location
     onClick.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger,
   )
 
-def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: Observable[dom.Position]) = {
+def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[dom.Position]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlSelect.{onSlFocus as _, onSlBlur as _, onSlAfterHide as _, open as _, *}
   import webcodegen.shoelace.SlOption.{value as _, *}
