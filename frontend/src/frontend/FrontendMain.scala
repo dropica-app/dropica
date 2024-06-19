@@ -143,10 +143,9 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[d
   positionObservable.transformRx(_.sampleMillis(3000)).map { position =>
     val rpcLocation: rpc.Location.GCS =
       rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
-    refreshTrigger
-      .asEffect(
-        RpcClient.call.getMessagesAtLocation(rpcLocation)
-      )
+    refreshTrigger.observable
+      .prepend(())
+      .asEffect(RpcClient.call.getMessagesAtLocation(rpcLocation))
       .map(
         _.map(message =>
           renderMessage(
