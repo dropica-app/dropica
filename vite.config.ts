@@ -25,4 +25,7 @@ export default defineConfig({
       '/RpcApi/': 'http://localhost:8081',
     },
   },
+  build: {
+    sourcemap: true
+  }
 });
