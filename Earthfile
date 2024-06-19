@@ -22,7 +22,7 @@ build:
   COPY package.json bun.lockb ./
   RUN devbox run -- bun install
   RUN devbox run -- mill frontend.fullLinkJS
-  COPY main.js index.html vite.config.ts style.css ./
+  COPY --dir main.js index.html vite.config.ts style.css public ./
   RUN devbox run -- bunx  vite build
   SAVE ARTIFACT out.jar
   SAVE ARTIFACT dist
