@@ -9,7 +9,7 @@ import colibri.reactive.*
 // import authn.frontend.*
 import org.scalajs.dom.window.localStorage
 import org.scalajs.dom
-import org.scalajs.dom.{window, Navigator, Position}
+import org.scalajs.dom.{window, Position}
 import scala.scalajs.js
 import webcodegen.shoelace.SlCard.borderRadius
 import org.scalajs.dom.PositionOptions
