@@ -22,6 +22,12 @@ import javax.sql.DataSource
 // import authn.backend.AuthnClientConfig
 // import authn.backend.AccountImport
 
+import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+
+private val threadPool                     = Executors.newFixedThreadPool(2)
+private val dbec: ExecutionContextExecutor = ExecutionContext.fromExecutor(threadPool)
+
 class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
 
   val headers: Option[Authorization] = request.headers.get[Authorization]
@@ -62,17 +68,21 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
   }
 
   def registerDevice(deviceSecret: String): IO[Unit] = IO {
+    println("lebendort")
     magnum.connect(ds) {
       db.DeviceProfileRepo.findByIndexOnDeviceSecret(deviceSecret) match {
         case Some(_) => ()
         case None =>
-          val _ =
-      sql"insert into ${db.DeviceProfile.Table}(${db.DeviceProfile.Table.deviceSecret}, ${db.DeviceProfile.Table.deviceAddress}) values (${db.DeviceProfile.Creator(
-          deviceSecret = deviceSecret,
-          deviceAddress = generateSecureDeviceAddress(10),
-              )})".update.run()
+          val creator = db.DeviceProfile.Creator(
+            deviceSecret = deviceSecret,
+            deviceAddress = generateSecureDeviceAddress(10),
+          )
+          sql"insert into ${db.DeviceProfile.Table}(${db.DeviceProfile.Table.deviceSecret}, ${db.DeviceProfile.Table.deviceAddress}) values (${creator})".update
+            .run()
+          ()
+      }
     }
-  }
+  }.evalOn(dbec)
 
   def sendMessage(messageId: Int, targetDeviceAddress: String): IO[Boolean] = withDevice(deviceProfile =>
     IO {
