@@ -177,11 +177,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
       ),
       candidates AS (
         SELECT
-          l.location_id,
-          l.lat,
-          l.lon,
-          l.x,
-          l.y
+          l.*
         FROM
           location l,
           params p
@@ -196,11 +192,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           si.maxy >= p.target_y - p.search_radius
       )
       SELECT
-        c.location_id,
-        c.lat,
-        c.lon,
-        c.x,
-        c.y,
+        c.*,
         (p.R * acos(
           cos(radians(p.target_latitude)) * cos(radians(c.lat)) * cos(radians(c.lon) - radians(p.target_longitude)) +
           sin(radians(p.target_latitude)) * sin(radians(c.lat))
