@@ -7,7 +7,6 @@ import com.comcast.ip4s.*
 import cps.*
 import cps.monads.catsEffect.{*, given}
 import org.http4s.*
-import org.http4s.dsl.Http4sDsl
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.middleware.Logger
 import org.http4s.server.middleware.ErrorAction
