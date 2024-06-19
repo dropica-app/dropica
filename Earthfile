@@ -33,6 +33,7 @@ docker-image:
   FROM eclipse-temurin:21.0.3_9-jre-ubi9-minimal
   COPY +build/out.jar ./
   COPY --dir +build/dist ./
+  RUN mkdir -p /db
   ENV FRONTEND_DISTRIBUTION_PATH=dist
   ENV JDBC_URL=jdbc:sqlite:/db/data.db
   CMD ["java", "-jar", "out.jar", "Migrate", "HttpServer"]
