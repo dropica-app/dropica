@@ -6,7 +6,7 @@ case class AppConfig(
   frontendDistributionPath: String,
   jdbcUrl: String,
 ) {
-  val dataSource = SQLiteDataSource().tap(_.setUrl(jdbcUrl)).tap(_.setEnforceForeignKeys(true))
+  val dataSource = SQLiteDataSource().tap(_.setUrl(jdbcUrl)).tap(_.setEnforceForeignKeys(true)).tap(_.setJournalMode("WAL"))
 }
 
 object AppConfig {
