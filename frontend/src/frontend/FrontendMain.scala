@@ -140,7 +140,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[d
       )
     )
   ),
-  positionObservable.transformRx(_.sampleMillis(3000)).map { position =>
+  Observable.intervalMillis(3000).withLatestMap(positionObservable.observable) { (_, position) =>
     val rpcLocation: rpc.Location.GCS =
       rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
     refreshTrigger.observable
