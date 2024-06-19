@@ -77,40 +77,6 @@ object Main extends IOApp.Simple {
   }
 }
 
-def camera = {
-  val detector = BarcodeDetector(new {
-    formats = js.Array("qr_code")
-  })
-
-  video(
-    height := "200px",
-    width := "200px",
-    VMod.attr[Boolean]("autoplay", identity) := true,
-    VMod.prop("srcObject") <-- RxLater.future(
-      window.navigator.mediaDevices
-        .getUserMedia(new {
-          video = true
-          audio = false
-        })
-        .toFuture
-    ),
-    onDomMount
-      .transform(x =>
-        Observable
-          .intervalMillis(100)
-          .switchMap(_ =>
-            x.mapFuture { element =>
-              println("DETECTING...")
-              detector.detect(element).toFuture
-            }
-          )
-      )
-      .foreach { result =>
-        println(result.map(_.rawValue).mkString(", "))
-      },
-  )
-}
-
 def createMessage(refreshTrigger: VarEvent[Unit]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlInput.{value as _, *}
@@ -203,8 +169,8 @@ def renderMessage(refreshTrigger: VarEvent[Unit], message: rpc.Message, onClickE
       case Some(onClickEffect) =>
         VMod(
           backgroundColor := "#eeeeee",
-    onClick.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger,
-  )
+          onClick.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger,
+        )
       case None => VMod.empty
     },
   )
