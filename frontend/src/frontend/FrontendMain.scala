@@ -73,7 +73,7 @@ object Main extends IOApp.Simple {
     }
 
     // render the component into the <div id="app"></div> in index.html
-    unlift(Outwatch.renderReplace[IO]("#app", myComponent))
+    unlift(Outwatch.renderReplace[IO]("#app", myComponent, RenderConfig.showError))
   }
 }
 
