@@ -92,7 +92,8 @@ app-deploy:
 
 
 ci-test:
-  BUILD +build
+  BUILD +build-mill
+  BUILD +build-vite
 
 ci-deploy:
   # To run manually:
