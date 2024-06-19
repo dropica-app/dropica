@@ -32,7 +32,9 @@ create table location(
   location_id integer primary key, -- rowid
   lat real not null,
   lon real not null,
+  accuracy real not null,
   altitude real not null,
+  altitude_accuracy real not null,
   -- https://en.wikipedia.org/wiki/web_mercator_projection
   x real not null generated always as (
       6378137.0 * (lon * pi() / 180.0)

@@ -106,7 +106,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
       // you can only drop it, if it's on your device
       magnum.transact(ds) {
         val message           = db.MessageRepo.findById(messageId).get
-        val targetLocation    = db.LocationRepo.insertReturning(db.Location.Creator(location.lat, location.lon, location.altitude))
+        val targetLocation    = db.LocationRepo.insertReturning(db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitude_accuracy))
         val messageIsOnDevice = message.onDevice.contains(deviceProfile.deviceId)
         scribe.info(s"message $messageId is on device: $messageIsOnDevice")
         if (messageIsOnDevice) {

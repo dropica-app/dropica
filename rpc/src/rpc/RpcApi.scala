@@ -20,15 +20,15 @@ trait RpcApi {
 }
 
 enum Location derives ReadWriter:
-  case GCS(lat: Double, lon: Double, altitude: Double)
-  case WebMercator(x: Double, y: Double, altitude: Double)
+  case GCS(lat: Double, lon: Double, accuracy: Double, altitude: Double, altitude_accuracy: Double)
+  case WebMercator(x: Double, y: Double, accuracy: Double, altitude: Double, altitude_accuracy: Double)
 
   def toWebMercator: Location.WebMercator = this match
-    case Location.GCS(lat, lon, altitude) =>
+    case Location.GCS(lat, lon, accuracy, altitude, altitude_accuracy) =>
       import math._
       val x = 6378137.0 * (lon * Pi / 180.0)
       val y = 6378137.0 * log(tan((Pi / 4.0) + (lat * Pi / 360.0)))
-      Location.WebMercator(x, y, altitude)
+      Location.WebMercator(x, y, accuracy, altitude, altitude_accuracy)
     case wm: Location.WebMercator => wm
 
 case class Message(messageId: Int, content: String) derives ReadWriter

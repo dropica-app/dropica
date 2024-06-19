@@ -15,6 +15,17 @@ import webcodegen.shoelace.SlCard.borderRadius
 import org.scalajs.dom.PositionOptions
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
+extension (position: org.scalajs.dom.Position)
+  def toRpc: rpc.Location.GCS = {
+    rpc.Location.GCS(
+      lat = position.coords.latitude,
+      lon = position.coords.longitude,
+      accuracy = position.coords.accuracy,
+      altitude = position.coords.altitude,
+      altitude_accuracy = position.coords.altitudeAccuracy,
+    )
+  }
+
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
 
 object Main extends IOApp.Simple {
@@ -141,17 +152,15 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[d
     )
   ),
   Observable.intervalMillis(3000).withLatestMap(positionObservable.observable) { (_, position) =>
-    val rpcLocation: rpc.Location.GCS =
-      rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
     refreshTrigger.observable
       .prepend(())
-      .asEffect(RpcClient.call.getMessagesAtLocation(rpcLocation))
+      .asEffect(RpcClient.call.getMessagesAtLocation(position.toRpc))
       .map(
         _.map(message =>
           renderMessage(
             refreshTrigger,
             message,
-            onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, rpcLocation).void),
+            onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, position.toRpc).void),
           )
         )
       )
@@ -194,14 +203,10 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent
       div(
         display.flex,
         positionObservable.map(Some.apply).observable.prepend(None).map { position =>
-          val rpcLocation: Option[rpc.Location.GCS] = position.map { position =>
-            rpc.Location.GCS(lat = position.coords.latitude, lon = position.coords.longitude, altitude = position.coords.altitude)
-          }
-
           renderMessage(
             refreshTrigger,
             message,
-            onClickEffect = rpcLocation.map(RpcClient.call.dropMessage(message.messageId, _).void),
+            onClickEffect = position.map(position => RpcClient.call.dropMessage(message.messageId, position.toRpc).void),
           )
         },
         slButton("Send to device", onClick.as(true) --> openDialog),
