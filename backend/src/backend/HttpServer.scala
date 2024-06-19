@@ -25,7 +25,7 @@ object HttpServer {
     def errorHandler(t: Throwable, msg: => String): IO[Unit] =
       IO.println(msg) >> IO.println(t) >> IO(t.printStackTrace())
 
-    val loggedRoutes = Logger.httpApp(logHeaders = false, logBody = false)(
+    val loggedRoutes = Logger.httpApp[IO](logHeaders = false, logBody = false, logAction = Some(_ => IO.unit))(
       ErrorAction.log(
         routes.orNotFound,
         messageFailureLogAction = errorHandler,
