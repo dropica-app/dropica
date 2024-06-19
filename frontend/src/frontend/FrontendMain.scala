@@ -12,6 +12,7 @@ import org.scalajs.dom
 import org.scalajs.dom.{window, Navigator, Position}
 import scala.scalajs.js
 import webcodegen.shoelace.SlCard.borderRadius
+import org.scalajs.dom.PositionOptions
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
@@ -25,10 +26,24 @@ object Main extends IOApp.Simple {
 
     val positionObservable = Observable
       .create[dom.Position] { observer =>
-        val watchId = window.navigator.geolocation.watchPosition(position => observer.unsafeOnNext(position))
+        val watchId = window.navigator.geolocation.watchPosition(
+          position => observer.unsafeOnNext(position),
+          error => observer.unsafeOnError(Exception(error.message)),
+          js.Dynamic.literal(enableHighAccuracy = true, timeout = Double.PositiveInfinity, maximumAge = 0).asInstanceOf[PositionOptions],
+        )
         Cancelable(() => window.navigator.geolocation.clearWatch(watchId))
       }
-      .sampleMillis(2000)
+
+    // def getCurrentPositionPromise(options: PositionOptions): IO[Position] = IO.async_ { callback =>
+    //   window.navigator.geolocation.getCurrentPosition(value => callback(Right(value)), error => callback(Left(Exception(error.message))))
+    // }
+    //
+    // val positionObservable =
+    //   Observable.intervalMillis(2000).mapEffect { _ =>
+    //     getCurrentPositionPromise(
+    //       js.Dynamic.literal(enableHighAccuracy = true, timeout = Double.PositiveInfinity, maximumAge = 0).asInstanceOf[PositionOptions]
+    //     )
+    //   }
 
     val refreshTrigger = VarEvent[Unit]()
 
