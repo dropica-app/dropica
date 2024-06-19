@@ -10,6 +10,8 @@ import mill.scalajslib._
 import mill.scalajslib.api._
 
 trait AppScalaModule extends ScalaModule {
+  val isCi = sys.env.get("CI").contains("true")
+
   def scalaVersion = "3.4.1"
   val versions = new {
     val authn    = "0.1.3"
@@ -22,13 +24,22 @@ trait AppScalaModule extends ScalaModule {
     ivy"com.github.rssh::dotty-cps-async::0.9.21",
     ivy"com.github.rssh::cps-async-connect-cats-effect::0.9.21",
   )
+
   def scalacOptions = T {
     super.scalacOptions() ++ Seq(
-      "-Wunused:imports",
+      "-encoding",
+      "utf8",
+      "-unchecked",
+      "-deprecation",
+      "-feature",
+      "-language:higherKinds",
+      "-Ykind-projector",
+      "-Wnonunit-statement",
+      "-Wunused:imports,privates,params,locals,implicits,explicits",
       // default imports in every scala file. we use the scala defaults + chaining + cps for direct syntax with lift/unlift/!
       // https://docs.scala-lang.org/overviews/compiler-options/
       "-Yimports:java.lang,scala,scala.Predef,scala.util.chaining,cps.syntax.monadless,cps.monads.catsEffect",
-    )
+    ) ++ Option.when(isCi)("-Xfatal-warnings")
   }
 }
 

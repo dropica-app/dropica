@@ -77,9 +77,9 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
             deviceSecret = deviceSecret,
             deviceAddress = generateSecureDeviceAddress(10),
           )
-          sql"insert into ${db.DeviceProfile.Table}(${db.DeviceProfile.Table.deviceSecret}, ${db.DeviceProfile.Table.deviceAddress}) values (${creator})".update
-            .run()
-          ()
+          val _ = sql"""
+          insert into ${db.DeviceProfile.Table}(${db.DeviceProfile.Table.deviceSecret}, ${db.DeviceProfile.Table.deviceAddress}) values (${creator})
+          """.update.run()
       }
     }
   }.evalOn(dbec)
@@ -105,8 +105,10 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     IO {
       // you can only drop it, if it's on your device
       magnum.transact(ds) {
-        val message           = db.MessageRepo.findById(messageId).get
-        val targetLocation    = db.LocationRepo.insertReturning(db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitude_accuracy))
+        val message = db.MessageRepo.findById(messageId).get
+        val targetLocation = db.LocationRepo.insertReturning(
+          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitude_accuracy)
+        )
         val messageIsOnDevice = message.onDevice.contains(deviceProfile.deviceId)
         scribe.info(s"message $messageId is on device: $messageIsOnDevice")
         if (messageIsOnDevice) {
@@ -146,8 +148,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
   def createMessage(content: String): IO[Unit] = withDevice(deviceProfile =>
     IO {
       magnum.transact(ds) {
-        val message =
-          db.MessageRepo.insertReturning(db.Message.Creator(content, onDevice = Some(deviceProfile.deviceId), atLocation = None))
+        db.MessageRepo.insert(db.Message.Creator(content, onDevice = Some(deviceProfile.deviceId), atLocation = None))
       }
     }
   )

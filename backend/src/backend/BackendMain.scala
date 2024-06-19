@@ -1,13 +1,12 @@
 package backend
 
-import backend.BackendMain.CliArg
 import cats.effect.{ExitCode, IO, IOApp}
 import cps.*
 import cps.monads.catsEffect.{*, given}
 
 object BackendMain extends IOApp {
   val minimumLevel = Option(System.getenv("LOG_LEVEL"))
-  scribe.Logger.root.withMinimumLevel(minimumLevel.fold(scribe.Level.Info)(scribe.Level.apply)).replace()
+  val _            = scribe.Logger.root.withMinimumLevel(minimumLevel.fold(scribe.Level.Info)(scribe.Level.apply)).replace()
 
   enum CliArg { case HttpServer, Migrate, RepairMigrations }
 
