@@ -54,6 +54,7 @@ object frontend extends AppScalaJSModule with WebCodegenModule {
 
   def scalacOptions = T {
     // vite serves source maps from the out-folder. Fix the relative path to the source files:
+    // TODO: for production builds, point sourcemap to github
     super.scalacOptions() ++ Seq(s"-scalajs-mapSourceURI:${T.workspace.toIO.toURI}->../../../.")
   }
 
