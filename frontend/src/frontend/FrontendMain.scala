@@ -11,18 +11,17 @@ import org.scalajs.dom.window.localStorage
 import org.scalajs.dom
 import org.scalajs.dom.{window, Position}
 import scala.scalajs.js
-import webcodegen.shoelace.SlCard.borderRadius
 import org.scalajs.dom.PositionOptions
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
 extension (position: org.scalajs.dom.Position)
-  def toRpc: rpc.Location.GCS = {
-    rpc.Location.GCS(
+  def toRpc: rpc.Location = {
+    rpc.Location(
       lat = position.coords.latitude,
       lon = position.coords.longitude,
       accuracy = position.coords.accuracy,
       altitude = position.coords.altitude,
-      altitude_accuracy = position.coords.altitudeAccuracy,
+      altitudeAccuracy = position.coords.altitudeAccuracy,
     )
   }
 
@@ -67,11 +66,11 @@ object Main extends IOApp.Simple {
       slTabGroup(
         height := "100%",
         VMod.attr("placement") := "bottom",
-        slTab("Ground", slotNav, panel := "ground"),
+        slTab("Nearby", slotNav, panel := "nearby"),
         slTab("Device", slotNav, panel := "device"),
         slTab("Contacts", slotNav, panel := "contacts"),
         slTabPanel(
-          name := "ground",
+          name := "nearby",
           messagesNearby(refreshTrigger, positionObservable),
         ),
         slTabPanel(
@@ -133,50 +132,58 @@ def addContact = {
   )
 }
 
-def messagesNearby(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[dom.Position]) = div(
+def messagesNearby(refreshTrigger: VarEvent[Unit], positionEvents: RxEvent[dom.Position]) = {
+  import webcodegen.shoelace.SlSpinner.*
   div(
-    positionObservable.map(p =>
-      div(
-        fontSize := "var(--sl-font-size-x-small)",
-        div("Location Accuracy (m): "),
-        table(
-          // tr(td("time"), td(p.timestamp)),
-          // tr(td("lat"), td(p.coords.latitude)),
-          // tr(td("lon"), td(p.coords.longitude)),
-          tr(td("acc"), td(p.coords.accuracy)),
-          tr(td("alt"), td(p.coords.altitude)),
-          // tr(td("heading"), td(p.coords.heading)),
-          // tr(td("speed"), td(p.coords.speed)),
-        ),
-      )
-    )
-  ),
-  Observable.intervalMillis(3000).withLatestMap(positionObservable.observable) { (_, position) =>
-    refreshTrigger.observable
-      .prepend(())
-      .asEffect(RpcClient.call.getMessagesAtLocation(position.toRpc))
-      .map(
-        _.map(message =>
-          renderMessage(
-            refreshTrigger,
-            message,
-            onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, position.toRpc).void),
+    div(
+      fontSize := "var(--sl-font-size-x-small)",
+      positionEvents.observable
+        .map(p =>
+          div(
+            f"Location Accuracy: ${p.coords.accuracy}%.0fm"
           )
         )
-      )
-  },
-)
+        .prepend(div("Waiting for location service...", slSpinner())),
+    ),
+    Observable.intervalMillis(3000).withLatest(positionEvents.observable).switchMap { case (_, position) =>
+      refreshTrigger.observable
+        .prepend(())
+        .asEffect(RpcClient.call.getMessagesAtLocation(position.toRpc))
+        .map(
+          _.map { case (message, messageLocation) =>
+            renderMessage(
+              refreshTrigger,
+              message,
+              messageLocation = Some(messageLocation),
+              location = Some(position.toRpc),
+              onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, position.toRpc).void),
+            )
+          }
+        )
+    },
+  )
+}
 
-def renderMessage(refreshTrigger: VarEvent[Unit], message: rpc.Message, onClickEffect: Option[IO[Unit]]) =
+def renderMessage(
+  refreshTrigger: VarEvent[Unit],
+  message: rpc.Message,
+  messageLocation: Option[rpc.Location] = None,
+  location: Option[rpc.Location] = None,
+  onClickEffect: Option[IO[Unit]] = None,
+) =
   div(
+    display.flex,
     padding := "16px",
     margin := "8px",
     borderRadius := "5px",
-    message.content,
+    div(message.content),
+    location.map(l =>
+      messageLocation.map(ml => div(f"${l.geodesicDistanceTo(ml)}%.0fm", color := "var(--sl-color-sky-900)", marginLeft.auto))
+    ),
     onClickEffect match {
       case Some(onClickEffect) =>
         VMod(
-          backgroundColor := "#eeeeee",
+          backgroundColor := "var(--sl-color-sky-100)",
           onClick.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger,
         )
       case None => VMod.empty

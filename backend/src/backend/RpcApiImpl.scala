@@ -101,13 +101,13 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  def dropMessage(messageId: Int, location: rpc.Location.GCS): IO[Boolean] = withDevice(deviceProfile =>
+  def dropMessage(messageId: Int, location: rpc.Location): IO[Boolean] = withDevice(deviceProfile =>
     IO {
       // you can only drop it, if it's on your device
       magnum.transact(ds) {
         val message = db.MessageRepo.findById(messageId).get
         val targetLocation = db.LocationRepo.insertReturning(
-          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitude_accuracy)
+          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitudeAccuracy)
         )
         val messageIsOnDevice = message.onDevice.contains(deviceProfile.deviceId)
         scribe.info(s"message $messageId is on device: $messageIsOnDevice, moving to ${targetLocation.toString}")
@@ -126,13 +126,13 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  def pickupMessage(messageId: Int, location: rpc.Location.GCS): IO[Boolean] = withDevice(deviceProfile =>
+  def pickupMessage(messageId: Int, location: rpc.Location): IO[Boolean] = withDevice(deviceProfile =>
     IO {
       // you can only pick up a message, if it is close to your location
       magnum.transact(ds) {
         val message            = db.MessageRepo.findById(messageId).get
         val messagesAtLocation = queryNearbyMessages(location)
-        if (messagesAtLocation.exists(_.messageId == messageId)) {
+        if (messagesAtLocation.exists(_._1.messageId == messageId)) {
           db.MessageRepo.update(message.copy(onDevice = Some(deviceProfile.deviceId), atLocation = None))
           db.MessageHistoryRepo.insert(
             db.MessageHistory.Creator(messageId = message.messageId, onDevice = Some(deviceProfile.deviceId), atLocation = None)
@@ -162,7 +162,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  private def queryNearbyMessages(location: rpc.Location.GCS)(using DbCon): Vector[rpc.Message] = {
+  private def queryNearbyMessages(location: rpc.Location)(using DbCon): Vector[(rpc.Message, rpc.Location)] = {
     val locationWebMercator = location.toWebMercator
     // TODO coordinate wrap around at date line
     val locations = sql"""
@@ -208,10 +208,12 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
       ORDER BY
         distance;
       """.query[db.Location].run()
-    locations.view.flatMap(l => db.MessageRepo.findByIndexOnAtLocation(Some(l.locationId)).map(_.to[rpc.Message])).toVector
+    locations.view
+      .flatMap(l => db.MessageRepo.findByIndexOnAtLocation(Some(l.locationId)).map(m => (m.to[rpc.Message], l.to[rpc.Location])))
+      .toVector
   }
 
-  def getMessagesAtLocation(location: rpc.Location.GCS): IO[Vector[rpc.Message]] = withDevice(deviceProfile =>
+  def getMessagesAtLocation(location: rpc.Location): IO[Vector[(rpc.Message, rpc.Location)]] = withDevice(deviceProfile =>
     IO {
       magnum.transact(ds) {
         queryNearbyMessages(location)

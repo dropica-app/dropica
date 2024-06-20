@@ -9,27 +9,37 @@ trait RpcApi {
 
   def getDeviceAddress: IO[String]
   def getMessagesOnDevice: IO[Vector[Message]]
-  def getMessagesAtLocation(location: Location.GCS): IO[Vector[Message]]
+  def getMessagesAtLocation(location: Location): IO[Vector[(Message, Location)]]
   def getContacts: IO[Vector[String]]
 
   def sendMessage(messageId: Int, deviceAddress: String): IO[Boolean]
-  def pickupMessage(messageId: Int, location: Location.GCS): IO[Boolean]
-  def dropMessage(messageId: Int, location: Location.GCS): IO[Boolean]
+  def pickupMessage(messageId: Int, location: Location): IO[Boolean]
+  def dropMessage(messageId: Int, location: Location): IO[Boolean]
   def createMessage(content: String): IO[Unit]
   def addContact(targetDeviceAddress: String): IO[Boolean]
 }
 
-enum Location derives ReadWriter:
-  case GCS(lat: Double, lon: Double, accuracy: Double, altitude: Double, altitude_accuracy: Double)
-  case WebMercator(x: Double, y: Double, accuracy: Double, altitude: Double, altitude_accuracy: Double)
+case class Location(lat: Double, lon: Double, accuracy: Double, altitude: Double, altitudeAccuracy: Double) derives ReadWriter {
+  def toWebMercator: WebMercatorLocation = {
+    import math._
+    val x = 6378137.0 * (lon * Pi / 180.0)
+    val y = 6378137.0 * log(tan((Pi / 4.0) + (lat * Pi / 360.0)))
+    WebMercatorLocation(x, y, accuracy, altitude, altitudeAccuracy)
+  }
 
-  def toWebMercator: Location.WebMercator = this match
-    case Location.GCS(lat, lon, accuracy, altitude, altitude_accuracy) =>
-      import math._
-      val x = 6378137.0 * (lon * Pi / 180.0)
-      val y = 6378137.0 * log(tan((Pi / 4.0) + (lat * Pi / 360.0)))
-      Location.WebMercator(x, y, accuracy, altitude, altitude_accuracy)
-    case wm: Location.WebMercator => wm
+  def geodesicDistanceTo(that: Location): Double =
+    import math._
+    val R    = 6371000.0 // Earth radius in meters
+    val dLat = (that.lat - this.lat) * Pi / 180.0
+    val dLon = (that.lon - this.lon) * Pi / 180.0
+    val a = sin(dLat / 2) * sin(dLat / 2) +
+      cos(this.lat * Pi / 180.0) * cos(that.lat * Pi / 180.0) *
+      sin(dLon / 2) * sin(dLon / 2)
+    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    R * c
+}
+
+case class WebMercatorLocation(x: Double, y: Double, accuracy: Double, altitude: Double, altitudeAccuracy: Double)
 
 case class Message(messageId: Int, content: String) derives ReadWriter
 
