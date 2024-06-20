@@ -257,13 +257,14 @@ def renderMessage(
     display.flex,
     alignItems.flexStart,
     backgroundColor := "var(--sl-color-gray-100)",
+    color := "var(--sl-color-gray-900)",
     borderRadius := "5px",
     div(message.content, padding := "16px", marginRight.auto),
     location.map(l =>
       messageLocation.map { ml =>
         val range = l.geodesicDistanceRangeTo(ml)
 
-        div(f"${range._1}%.0f-${range._2}%.0fm", color := "var(--sl-color-gray-900)", padding := "16px")
+        div(f"${range._1}%.0f-${range._2}%.0fm", color := "var(--sl-color-gray-600)", padding := "16px")
       }
     ),
     actions.map(actions => div(actions, flexShrink := 0, paddingTop := "5px", paddingRight := "5px")),
