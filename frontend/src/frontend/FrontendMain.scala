@@ -112,7 +112,7 @@ def createMessage(refreshTrigger: VarEvent[Unit]) = {
       ),
       slButton(
         "create",
-        onClick(messageContentState).foreachEffect(content =>
+        onClick(messageContentState.map(_.trim())).foreachEffect(content =>
           lift[IO] {
             messageContentState.set("")
             if (unlift(RpcClient.call.createMessage(content)))
