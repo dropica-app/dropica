@@ -55,14 +55,15 @@ build-vite:
   COPY +build-mill/frontend ./out/frontend/fullLinkJS.dest
   COPY --dir main.js index.html vite.config.ts style.css public ./
   RUN devbox run -- bunx vite build
-  SAVE ARTIFACT dist
+  SAVE ARTIFACT --keep-ts dist # timestamps must be kept for browser caching
 
 
 build-docker:
   # FROM ghcr.io/graalvm/jdk-community:22
   FROM eclipse-temurin:21.0.3_9-jre-ubi9-minimal
+  WORKDIR /app
   COPY +build-mill/backend.jar ./
-  COPY --dir +build-vite/dist ./
+  COPY --dir --keep-ts +build-vite/dist ./
   RUN mkdir -p /db
   ENV FRONTEND_DISTRIBUTION_PATH=dist
   ENV JDBC_URL=jdbc:sqlite:/db/data.db
