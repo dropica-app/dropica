@@ -60,9 +60,9 @@ object Main extends IOApp.Simple {
     val refreshTrigger = VarEvent[Unit]()
 
     val myComponent = {
-      import webcodegen.shoelace.SlTab.*
-      import webcodegen.shoelace.SlTabGroup.*
-      import webcodegen.shoelace.SlTabPanel.*
+      // import webcodegen.shoelace.SlTab.*
+      // import webcodegen.shoelace.SlTabGroup.*
+      // import webcodegen.shoelace.SlTabPanel.*
       messagePanel(refreshTrigger, locationEvents)
       // slTabGroup(
       //   height := "100%",
