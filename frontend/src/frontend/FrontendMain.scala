@@ -103,6 +103,16 @@ def createMessageForm(refreshTrigger: VarEvent[Unit]) = {
   val messageContentState = Var("")
   val errorState          = Var("")
 
+  def submit(content: String): IO[Unit] =
+    lift[IO] {
+      messageContentState.set("")
+      if (unlift(RpcClient.call.createMessage(content)))
+        errorState.set("")
+      else
+        errorState.set("Message already exists.")
+      refreshTrigger.set(())
+    }
+
   div(
     div(
       display.flex,
@@ -111,19 +121,18 @@ def createMessageForm(refreshTrigger: VarEvent[Unit]) = {
         value <-- messageContentState,
         onSlChange.map(_.target.value) --> messageContentState,
         width := "100%",
+        onKeyPress
+          .filter(_.keyCode == dom.KeyCode.Enter)
+          .async
+          .stopPropagation
+          .preventDefault
+          .asLatest(messageContentState)
+          .foreachEffect(submit),
+        // enterkeyhint := "done",
       ),
       slButton(
         "create",
-        onClick(messageContentState.map(_.trim())).foreachEffect(content =>
-          lift[IO] {
-            messageContentState.set("")
-            if (unlift(RpcClient.call.createMessage(content)))
-              errorState.set("")
-            else
-              errorState.set("Message already exists.")
-            refreshTrigger.set(())
-          }
-        ),
+        onClick(messageContentState.map(_.trim())).foreachEffect(submit),
       ),
     ),
     div(errorState, color := "var(--sl-color-gray-900)"),
