@@ -226,7 +226,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
                     message,
                     messageLocation = Some(messageLocation),
                     location = Some(location),
-                    actions = Some(
+                    actions = Option.when(messageLocation.geodesicDistanceRangeTo(location)._1 < 10)(
                       slButton(
                         "pick",
                         onClick.doEffect(
