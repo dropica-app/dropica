@@ -89,8 +89,8 @@ def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Loc
     paddingLeft := "5px",
     paddingRight := "5px",
     height := "100%",
-    messagesOnDevice(refreshTrigger, locationEvents)(flex := "1", overflowY := "scroll"),
-    messagesNearby(refreshTrigger, locationEvents)(flex := "1", overflowY := "scroll"),
+    messagesOnDevice(refreshTrigger, locationEvents)(height := "50%"),
+    messagesNearby(refreshTrigger, locationEvents)(height := "50%"),
   )
 }
 
@@ -139,56 +139,64 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
   val selectedProfile = VarLater[String]()
 
   div(
+    display.flex,
+    flexDirection.column,
     createMessage(refreshTrigger),
-    locationEvents.toRx.observable.switchMap(locationOpt => {
-      refreshTrigger.observable
-        .prepend(())
-        .asEffect(RpcClient.call.getMessagesOnDevice)
-        .map(_.map { message =>
-          val openDialog = Var(false)
-          @nowarn
-          val sendButton = VMod(
-            slButton("send", onClick.as(true) --> openDialog),
-            slDialog(
-              open <-- openDialog,
-              onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
-              div(
-                b(message.content),
-                height := "500px",
-                slSelect(
-                  onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
-                  contacts.map(_.map { deviceAddress =>
-                    slOption(value := deviceAddress, deviceAddress)
-                  }),
+    div(
+      display.flex,
+      flexDirection.column,
+      height := "100%",
+      overflowY := "scroll",
+      locationEvents.toRx.observable.switchMap(locationOpt => {
+        refreshTrigger.observable
+          .prepend(())
+          .asEffect(RpcClient.call.getMessagesOnDevice)
+          .map(_.map { message =>
+            val openDialog = Var(false)
+            @nowarn
+            val sendButton = VMod(
+              slButton("send", onClick.as(true) --> openDialog),
+              slDialog(
+                open <-- openDialog,
+                onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
+                div(
+                  b(message.content),
+                  height := "500px",
+                  slSelect(
+                    onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
+                    contacts.map(_.map { deviceAddress =>
+                      slOption(value := deviceAddress, deviceAddress)
+                    }),
+                  ),
+                ),
+                div(
+                  slotFooter,
+                  display.flex,
+                  slButton("Send to contact", onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void)),
                 ),
               ),
-              div(
-                slotFooter,
-                display.flex,
-                slButton("Send to contact", onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void)),
-              ),
-            ),
-          )
-          val dropButton = locationOpt.map(location =>
-            slButton(
-              "drop",
-              onClick.doEffect(
-                lift[IO] {
-                  unlift(RpcClient.call.dropMessage(message.messageId, location).void)
-                  refreshTrigger.set(())
-                }
-              ),
             )
-          )
+            val dropButton = locationOpt.map(location =>
+              slButton(
+                "drop",
+                onClick.doEffect(
+                  lift[IO] {
+                    unlift(RpcClient.call.dropMessage(message.messageId, location).void)
+                    refreshTrigger.set(())
+                  }
+                ),
+              )
+            )
 
-          renderMessage(
-            refreshTrigger,
-            message,
-            actions = Some(VMod(dropButton)),
-          )(marginTop := "8px")
+            renderMessage(
+              refreshTrigger,
+              message,
+              actions = Some(VMod(dropButton)),
+            )(marginTop := "8px")
 
-        })
-    }),
+          })
+      }),
+    ),
   )
 }
 
@@ -198,6 +206,8 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
 
   div(
     marginTop := "10px",
+    display.flex,
+    flexDirection.column,
     div("Nearby", textAlign.center),
     div(
       display.flex,
@@ -214,6 +224,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
       ),
     ),
     div(
+      overflowY := "scroll",
       Observable
         .intervalMillis(3000)
         .withLatest(locationEvents.observable)
@@ -243,7 +254,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
                   )(marginTop := "8px")
               }
             )
-        }
+        },
     ),
   )
 }
