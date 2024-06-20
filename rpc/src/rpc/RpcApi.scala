@@ -37,6 +37,19 @@ case class Location(lat: Double, lon: Double, accuracy: Double, altitude: Double
       sin(dLon / 2) * sin(dLon / 2)
     val c = 2 * atan2(sqrt(a), sqrt(1 - a))
     R * c
+
+  def geodesicDistanceRangeTo(that: Location): (Double, Double) = {
+    import math._
+    val horizontalDistance = geodesicDistanceTo(that)
+    val verticalDistance   = abs(this.altitude - that.altitude)
+    val totalDistance      = sqrt(pow(horizontalDistance, 2) + pow(verticalDistance, 2))
+
+    val horizontalRange = this.accuracy + that.accuracy
+    val verticalRange   = this.altitudeAccuracy + that.altitudeAccuracy
+    val totalRange      = sqrt(pow(horizontalRange, 2) + pow(verticalRange, 2))
+
+    (max(0, totalDistance - totalRange), totalDistance + totalRange)
+  }
 }
 
 case class WebMercatorLocation(x: Double, y: Double, accuracy: Double, altitude: Double, altitudeAccuracy: Double)

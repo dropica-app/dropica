@@ -14,17 +14,6 @@ import scala.scalajs.js
 import org.scalajs.dom.PositionOptions
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
-extension (position: org.scalajs.dom.Position)
-  def toRpc: rpc.Location = {
-    rpc.Location(
-      lat = position.coords.latitude,
-      lon = position.coords.longitude,
-      accuracy = position.coords.accuracy,
-      altitude = position.coords.altitude,
-      altitudeAccuracy = position.coords.altitudeAccuracy,
-    )
-  }
-
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
 
 object Main extends IOApp.Simple {
@@ -34,7 +23,7 @@ object Main extends IOApp.Simple {
     localStorage.setItem("deviceSecret", deviceSecret)
     unlift(RpcClient.call.registerDevice(deviceSecret))
 
-    val positionObservable = RxEvent.observable(
+    val positionEvents = RxEvent.observable(
       Observable
         .create[dom.Position] { observer =>
           val watchId = window.navigator.geolocation.watchPosition(
@@ -46,11 +35,21 @@ object Main extends IOApp.Simple {
         }
     )
 
+    val locationEvents = positionEvents.map(position =>
+      rpc.Location(
+        lat = position.coords.latitude,
+        lon = position.coords.longitude,
+        accuracy = position.coords.accuracy,
+        altitude = position.coords.altitude,
+        altitudeAccuracy = position.coords.altitudeAccuracy,
+      )
+    )
+
     // def getCurrentPositionPromise(options: PositionOptions): IO[Position] = IO.async_ { callback =>
     //   window.navigator.geolocation.getCurrentPosition(value => callback(Right(value)), error => callback(Left(Exception(error.message))))
     // }
     //
-    // val positionObservable =
+    // val locationEvents =
     //   Observable.intervalMillis(2000).mapEffect { _ =>
     //     getCurrentPositionPromise(
     //       js.Dynamic.literal(enableHighAccuracy = true, timeout = Double.PositiveInfinity, maximumAge = 0).asInstanceOf[PositionOptions]
@@ -71,11 +70,11 @@ object Main extends IOApp.Simple {
         slTab("Contacts", slotNav, panel := "contacts"),
         slTabPanel(
           name := "nearby",
-          messagesNearby(refreshTrigger, positionObservable),
+          messagesNearby(refreshTrigger, locationEvents),
         ),
         slTabPanel(
           name := "device",
-          messagesOnDevice(refreshTrigger, positionObservable),
+          messagesOnDevice(refreshTrigger, locationEvents),
         ),
         slTabPanel(name := "contacts", div(width := "100%", height := "100%", showDeviceAddress, addContact)),
         // camera,
@@ -132,35 +131,39 @@ def addContact = {
   )
 }
 
-def messagesNearby(refreshTrigger: VarEvent[Unit], positionEvents: RxEvent[dom.Position]) = {
+def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
   import webcodegen.shoelace.SlSpinner.*
   div(
     div(
       fontSize := "var(--sl-font-size-x-small)",
-      positionEvents.observable
+      locationEvents.observable
         .map(p =>
           div(
-            f"Location Accuracy: ${p.coords.accuracy}%.0fm"
+            f"Location Accuracy: ${p.accuracy}%.0fm"
           )
         )
         .prepend(div("Waiting for location service...", slSpinner())),
     ),
-    Observable.intervalMillis(3000).withLatest(positionEvents.observable).switchMap { case (_, position) =>
-      refreshTrigger.observable
-        .prepend(())
-        .asEffect(RpcClient.call.getMessagesAtLocation(position.toRpc))
-        .map(
-          _.map { case (message, messageLocation) =>
-            renderMessage(
-              refreshTrigger,
-              message,
-              messageLocation = Some(messageLocation),
-              location = Some(position.toRpc),
-              onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, position.toRpc).void),
-            )
-          }
-        )
-    },
+    Observable
+      .intervalMillis(3000)
+      .withLatest(locationEvents.observable)
+      .switchMap { case (_, location) =>
+        refreshTrigger.observable
+          .prepend(())
+          .asEffect(RpcClient.call.getMessagesAtLocation(location))
+          .map(
+            _.sortBy { case (message, messageLocation) => messageLocation.geodesicDistanceRangeTo(location)._2 }.map {
+              case (message, messageLocation) =>
+                renderMessage(
+                  refreshTrigger,
+                  message,
+                  messageLocation = Some(messageLocation),
+                  location = Some(location),
+                  onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, location).void),
+                )
+            }
+          )
+      },
   )
 }
 
@@ -178,7 +181,11 @@ def renderMessage(
     borderRadius := "5px",
     div(message.content),
     location.map(l =>
-      messageLocation.map(ml => div(f"${l.geodesicDistanceTo(ml)}%.0fm", color := "var(--sl-color-sky-900)", marginLeft.auto))
+      messageLocation.map { ml =>
+        val range = l.geodesicDistanceRangeTo(ml)
+
+        div(f"${range._1}-${range._2}%.0fm", color := "var(--sl-color-sky-900)", marginLeft.auto)
+      }
     ),
     onClickEffect match {
       case Some(onClickEffect) =>
@@ -190,7 +197,7 @@ def renderMessage(
     },
   )
 
-def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent[dom.Position]) = {
+def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlSelect.{onSlFocus as _, onSlBlur as _, onSlAfterHide as _, open as _, *}
   import webcodegen.shoelace.SlOption.{value as _, *}
@@ -209,11 +216,11 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], positionObservable: RxEvent
       val openDialog = Var(false)
       div(
         display.flex,
-        positionObservable.map(Some.apply).observable.prepend(None).map { position =>
+        locationEvents.map(Some.apply).observable.prepend(None).map { position =>
           renderMessage(
             refreshTrigger,
             message,
-            onClickEffect = position.map(position => RpcClient.call.dropMessage(message.messageId, position.toRpc).void),
+            onClickEffect = position.map(position => RpcClient.call.dropMessage(message.messageId, position).void),
           )
         },
         slButton("Send to device", onClick.as(true) --> openDialog),
