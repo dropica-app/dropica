@@ -100,27 +100,27 @@ def createMessage(refreshTrigger: VarEvent[Unit]) = {
   val errorState          = Var("")
 
   div(
-  div(
-    display.flex,
+    div(
+      display.flex,
       slInput(
         placeholder := "type message",
         value <-- messageContentState,
         onSlChange.map(_.target.value) --> messageContentState,
         width := "100%",
       ),
-    slButton(
-      "create",
+      slButton(
+        "create",
         onClick(messageContentState).foreachEffect(content =>
-        lift[IO] {
+          lift[IO] {
             messageContentState.set("")
             if (unlift(RpcClient.call.createMessage(content)))
               errorState.set("")
             else
               errorState.set("Message already exists.")
-          refreshTrigger.set(())
-        }
+            refreshTrigger.set(())
+          }
+        ),
       ),
-    ),
     ),
     div(errorState),
   )
@@ -182,7 +182,7 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
             refreshTrigger,
             message,
             actions = Some(VMod(dropButton, sendButton)),
-          )(marginTop := "8px", paddingRight := "8px")
+          )(marginTop := "8px")
 
         })
     }),
@@ -190,7 +190,9 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
 }
 
 def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
+  import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlSpinner.*
+
   div(
     marginTop := "10px",
     div("Nearby", textAlign.center),
@@ -224,7 +226,17 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
                     message,
                     messageLocation = Some(messageLocation),
                     location = Some(location),
-                    onClickEffect = Some(RpcClient.call.pickupMessage(message.messageId, location).void),
+                    actions = Some(
+                      slButton(
+                        "pick",
+                        onClick.doEffect(
+                          lift[IO] {
+                            unlift(RpcClient.call.pickupMessage(message.messageId, location).void)
+                            refreshTrigger.set(())
+                          }
+                        ),
+                      )
+                    ),
                   )(marginTop := "8px")
               }
             )
@@ -246,15 +258,15 @@ def renderMessage(
     alignItems.flexStart,
     backgroundColor := "var(--sl-color-gray-100)",
     borderRadius := "5px",
-    div(message.content, padding := "16px"),
-    actions.map(actions => div(actions, marginLeft.auto, flexShrink := 0, paddingTop := "5px")),
+    div(message.content, padding := "16px", marginRight.auto),
     location.map(l =>
       messageLocation.map { ml =>
         val range = l.geodesicDistanceRangeTo(ml)
 
-        div(f"${range._1}%.0f-${range._2}%.0fm", color := "var(--sl-color-gray-900)", marginLeft.auto, padding := "16px")
+        div(f"${range._1}%.0f-${range._2}%.0fm", color := "var(--sl-color-gray-900)", padding := "16px")
       }
     ),
+    actions.map(actions => div(actions, flexShrink := 0, paddingTop := "5px", paddingRight := "5px")),
     onClickEffect match {
       case Some(onClickEffect) =>
         VMod(
