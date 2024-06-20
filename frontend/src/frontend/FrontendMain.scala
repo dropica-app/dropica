@@ -177,7 +177,7 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
           val dropButton = locationOpt.map(location =>
             slButton(
               "drop",
-              onClick.doEffect(
+              onClick.stopPropagation.doEffect(
                 lift[IO] {
                   unlift(RpcClient.call.dropMessage(message.messageId, location).void)
                   refreshTrigger.set(())
@@ -241,7 +241,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
                     actions = Option.when(messageLocation.geodesicDistanceRangeTo(location)._1 < 10)(
                       slButton(
                         "pick",
-                        onClick.doEffect(
+                        onClick.stopPropagation.doEffect(
                           lift[IO] {
                             unlift(RpcClient.call.pickupMessage(message.messageId, location).void)
                             refreshTrigger.set(())
@@ -283,7 +283,7 @@ def renderMessage(
     onClickEffect match {
       case Some(onClickEffect) =>
         VMod(
-          onClick.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger
+          onClick.stopPropagation.mapEffect(_ => onClickEffect).as(()) --> refreshTrigger
         )
       case None => VMod.empty
     },
