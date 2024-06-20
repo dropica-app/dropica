@@ -179,7 +179,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           ${locationWebMercator.y} AS target_y, -- Web Mercator y-coordinate of the target
           ${location.lat} AS target_latitude,
           ${location.lon} AS target_longitude,
-          100.0 AS search_radius -- Adjust this value as needed
+          500.0 AS search_radius -- Adjust this value as needed
       ),
       candidates AS (
         SELECT
