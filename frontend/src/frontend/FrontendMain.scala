@@ -96,21 +96,33 @@ def createMessage(refreshTrigger: VarEvent[Unit]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlInput.{value as _, *}
 
-  val messageString = Var("")
+  val messageContentState = Var("")
+  val errorState          = Var("")
 
   div(
+  div(
     display.flex,
-    slInput(placeholder := "type message", value <-- messageString, onSlChange.map(_.target.value) --> messageString, width := "100%"),
+      slInput(
+        placeholder := "type message",
+        value <-- messageContentState,
+        onSlChange.map(_.target.value) --> messageContentState,
+        width := "100%",
+      ),
     slButton(
       "create",
-      onClick(messageString).foreachEffect(messageContent =>
+        onClick(messageContentState).foreachEffect(content =>
         lift[IO] {
-          messageString.set("")
-          unlift(RpcClient.call.createMessage(messageContent))
+            messageContentState.set("")
+            if (unlift(RpcClient.call.createMessage(content)))
+              errorState.set("")
+            else
+              errorState.set("Message already exists.")
           refreshTrigger.set(())
         }
       ),
     ),
+    ),
+    div(errorState),
   )
 }
 

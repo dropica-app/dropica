@@ -144,10 +144,17 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  def createMessage(content: String): IO[Unit] = withDevice(deviceProfile =>
+  def createMessage(content: String): IO[Boolean] = withDevice(deviceProfile =>
     IO {
       magnum.transact(ds) {
-        db.MessageRepo.insert(db.Message.Creator(content, onDevice = Some(deviceProfile.deviceId), atLocation = None))
+        Either.catchNonFatal(
+          db.MessageRepo.insert(db.Message.Creator(content, onDevice = Some(deviceProfile.deviceId), atLocation = None))
+        ) match {
+          case Left(e) =>
+            scribe.error(e)
+            false
+          case Right(_) => true
+        }
       }
     }
   )

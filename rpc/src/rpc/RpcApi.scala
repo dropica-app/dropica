@@ -15,7 +15,7 @@ trait RpcApi {
   def sendMessage(messageId: Int, deviceAddress: String): IO[Boolean]
   def pickupMessage(messageId: Int, location: Location): IO[Boolean]
   def dropMessage(messageId: Int, location: Location): IO[Boolean]
-  def createMessage(content: String): IO[Unit]
+  def createMessage(content: String): IO[Boolean]
   def addContact(targetDeviceAddress: String): IO[Boolean]
 }
 
