@@ -32,6 +32,9 @@ create table location(
   location_id integer primary key, -- rowid
   lat real not null,
   lon real not null,
+  accuracy real not null,
+  altitude real not null,
+  altitude_accuracy real not null,
   -- https://en.wikipedia.org/wiki/web_mercator_projection
   x real not null generated always as (
       6378137.0 * (lon * pi() / 180.0)
@@ -48,14 +51,12 @@ create trigger location_insert after insert on location begin
     values (new.location_id, new.x, new.x, new.y, new.y);
 end;
 
-create trigger location_update after update on location
-begin
+create trigger location_update after update on location begin
     update spatial_index
     set minx = new.x, maxx = new.x, miny = new.y, maxy = new.y
     where location_id = old.location_id;
 end;
 
-create trigger location_delete after delete on location
-begin
+create trigger location_delete after delete on location begin
     delete from spatial_index where location_id = old.location_id;
 end;

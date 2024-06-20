@@ -14,6 +14,14 @@ devbox:
   COPY --chown=${DEVBOX_USER}:${DEVBOX_USER} devbox.lock devbox.lock
   RUN devbox run -- echo "Installed Packages."
 
+test-migrations:
+  FROM +devbox
+  WORKDIR /code
+  COPY schema.sql ./
+  COPY backend/resources/migrations backend/resources/migrations
+  COPY scripts/diff_schemas scripts/diff_schemas
+  RUN devbox run -- scripts/diff_schemas
+
 build-mill:
   FROM +devbox
   WORKDIR /code
@@ -93,6 +101,7 @@ app-deploy:
 
 
 ci-test:
+  BUILD +test-migrations
   BUILD +build-mill
   BUILD +build-vite
 

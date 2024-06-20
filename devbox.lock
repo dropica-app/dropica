@@ -545,6 +545,54 @@
         }
       }
     },
+    "schemacrawler@latest": {
+      "last_modified": "2024-05-22T06:18:38Z",
+      "resolved": "github:NixOS/nixpkgs/3f316d2a50699a78afe5e77ca486ad553169061e#schemacrawler",
+      "source": "devbox-search",
+      "version": "16.21.2",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5bdhb5zj7z6bs12jr2smc9gyhr7y6inf-schemacrawler-16.21.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/5bdhb5zj7z6bs12jr2smc9gyhr7y6inf-schemacrawler-16.21.2"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/z7rhm1sziqg7c3p3s0nb4z4cdigzzk9w-schemacrawler-16.21.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/z7rhm1sziqg7c3p3s0nb4z4cdigzzk9w-schemacrawler-16.21.2"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5j1rmx7m14y1pbkz8fgxqnx3rf61v1fh-schemacrawler-16.21.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/5j1rmx7m14y1pbkz8fgxqnx3rf61v1fh-schemacrawler-16.21.2"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/b9fzczy9w9yzhw00nzza9s89m8mwwnv0-schemacrawler-16.21.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/b9fzczy9w9yzhw00nzza9s89m8mwwnv0-schemacrawler-16.21.2"
+        }
+      }
+    },
     "sqlite-interactive@latest": {
       "last_modified": "2024-06-06T04:00:50Z",
       "resolved": "github:NixOS/nixpkgs/818dbe2f96df233d2041739d6079bb616d3e5597#sqlite-interactive",
