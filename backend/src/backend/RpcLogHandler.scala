@@ -20,7 +20,7 @@ object RpcLogHandlerAnsi extends LogHandler[IO] {
 
       result match {
         case r @ Right(res) =>
-          val durationString = s"${durationMs}ms"
+          val durationString = f"${duration.toMicros / 1000.0}%.3fms"
           val durationColored = if (durationMs < 100) {
             durationString
           } else if (durationMs < 500) {
