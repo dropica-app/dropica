@@ -12,6 +12,7 @@ import org.scalajs.dom
 import org.scalajs.dom.{window, Position}
 import scala.scalajs.js
 import org.scalajs.dom.PositionOptions
+import scala.annotation.nowarn
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
@@ -62,17 +63,18 @@ object Main extends IOApp.Simple {
       import webcodegen.shoelace.SlTab.*
       import webcodegen.shoelace.SlTabGroup.*
       import webcodegen.shoelace.SlTabPanel.*
-      slTabGroup(
-        height := "100%",
-        VMod.attr("placement") := "bottom",
-        slTab("Messages", slotNav, panel := "messages"),
-        slTab("Profile", slotNav, panel := "profile"),
-        slTabPanel(
-          name := "messages",
-          messagePanel(refreshTrigger, locationEvents),
-        ),
-        slTabPanel(name := "profile", div(width := "100%", height := "100%", showDeviceAddress, addContact)),
-      )
+      messagePanel(refreshTrigger, locationEvents)
+      // slTabGroup(
+      //   height := "100%",
+      //   VMod.attr("placement") := "bottom",
+      //   slTab("Messages", slotNav, panel := "messages"),
+      //   slTab("Profile", slotNav, panel := "profile"),
+      //   slTabPanel(
+      //     name := "messages",
+      //     messagePanel(refreshTrigger, locationEvents),
+      //   ),
+      //   slTabPanel(name := "profile", div(width := "100%", height := "100%", showDeviceAddress, addContact)),
+      // )
     }
 
     // render the component into the <div id="app"></div> in index.html
@@ -144,6 +146,7 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
         .asEffect(RpcClient.call.getMessagesOnDevice)
         .map(_.map { message =>
           val openDialog = Var(false)
+          @nowarn
           val sendButton = VMod(
             slButton("send", onClick.as(true) --> openDialog),
             slDialog(
@@ -181,7 +184,7 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
           renderMessage(
             refreshTrigger,
             message,
-            actions = Some(VMod(dropButton, sendButton)),
+            actions = Some(VMod(dropButton)),
           )(marginTop := "8px")
 
         })
