@@ -126,7 +126,7 @@ def createMessageForm(refreshTrigger: VarEvent[Unit]) = {
         ),
       ),
     ),
-    div(errorState),
+    div(errorState, color := "var(--sl-color-gray-900)"),
   )
 }
 
