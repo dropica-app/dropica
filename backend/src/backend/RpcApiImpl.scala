@@ -68,7 +68,6 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
   }
 
   def registerDevice(deviceSecret: String): IO[Unit] = IO {
-    println("lebendort")
     magnum.connect(ds) {
       db.DeviceProfileRepo.findByIndexOnDeviceSecret(deviceSecret) match {
         case Some(_) => ()
@@ -94,7 +93,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           db.MessageHistoryRepo.insert(
             db.MessageHistory.Creator(messageId = message.messageId, onDevice = Some(targetDeviceProfile.deviceId), atLocation = None)
           )
-          println(s"message $messageId sent to $targetDeviceAddress")
+          scribe.info(s"message $messageId sent to $targetDeviceAddress")
           true
         }.getOrElse(false)
       }
