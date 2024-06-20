@@ -89,12 +89,14 @@ def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Loc
     paddingLeft := "5px",
     paddingRight := "5px",
     height := "100%",
-    messagesOnDevice(refreshTrigger, locationEvents)(height := "50%"),
     messagesNearby(refreshTrigger, locationEvents)(height := "50%"),
+    div("On Device", textAlign.center, marginTop := "30px", color := "var(--sl-color-gray-600)"),
+    messagesOnDevice(refreshTrigger, locationEvents)(height := "50%"),
+    createMessageForm(refreshTrigger)(flexShrink := 0),
   )
 }
 
-def createMessage(refreshTrigger: VarEvent[Unit]) = {
+def createMessageForm(refreshTrigger: VarEvent[Unit]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlInput.{value as _, *}
 
@@ -141,62 +143,57 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
   div(
     display.flex,
     flexDirection.column,
-    createMessage(refreshTrigger),
-    div(
-      display.flex,
-      flexDirection.column,
-      height := "100%",
-      overflowY := "scroll",
-      locationEvents.toRx.observable.switchMap(locationOpt => {
-        refreshTrigger.observable
-          .prepend(())
-          .asEffect(RpcClient.call.getMessagesOnDevice)
-          .map(_.map { message =>
-            val openDialog = Var(false)
-            @nowarn
-            val sendButton = VMod(
-              slButton("send", onClick.as(true) --> openDialog),
-              slDialog(
-                open <-- openDialog,
-                onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
-                div(
-                  b(message.content),
-                  height := "500px",
-                  slSelect(
-                    onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
-                    contacts.map(_.map { deviceAddress =>
-                      slOption(value := deviceAddress, deviceAddress)
-                    }),
-                  ),
-                ),
-                div(
-                  slotFooter,
-                  display.flex,
-                  slButton("Send to contact", onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void)),
+    height := "100%",
+    overflowY := "scroll",
+    locationEvents.toRx.observable.switchMap(locationOpt => {
+      refreshTrigger.observable
+        .prepend(())
+        .asEffect(RpcClient.call.getMessagesOnDevice)
+        .map(_.map { message =>
+          val openDialog = Var(false)
+          @nowarn
+          val sendButton = VMod(
+            slButton("send", onClick.as(true) --> openDialog),
+            slDialog(
+              open <-- openDialog,
+              onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
+              div(
+                b(message.content),
+                height := "500px",
+                slSelect(
+                  onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
+                  contacts.map(_.map { deviceAddress =>
+                    slOption(value := deviceAddress, deviceAddress)
+                  }),
                 ),
               ),
+              div(
+                slotFooter,
+                display.flex,
+                slButton("Send to contact", onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void)),
+              ),
+            ),
+          )
+          val dropButton = locationOpt.map(location =>
+            slButton(
+              "drop",
+              onClick.doEffect(
+                lift[IO] {
+                  unlift(RpcClient.call.dropMessage(message.messageId, location).void)
+                  refreshTrigger.set(())
+                }
+              ),
             )
-            val dropButton = locationOpt.map(location =>
-              slButton(
-                "drop",
-                onClick.doEffect(
-                  lift[IO] {
-                    unlift(RpcClient.call.dropMessage(message.messageId, location).void)
-                    refreshTrigger.set(())
-                  }
-                ),
-              )
-            )
+          )
 
-            renderMessage(
-              refreshTrigger,
-              message,
-              actions = Some(VMod(dropButton)),
-            )(marginTop := "8px")
+          renderMessage(
+            refreshTrigger,
+            message,
+            actions = Some(VMod(dropButton)),
+          )(marginTop := "8px")
 
-          })
-      }),
-    ),
+        })
+    }),
   )
 }
 
@@ -208,6 +205,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
     marginTop := "10px",
     display.flex,
     flexDirection.column,
+    color := "var(--sl-color-gray-600)",
     div("Nearby", textAlign.center),
     div(
       display.flex,
@@ -311,6 +309,7 @@ def showDeviceAddress = {
 def addContact = {
   import webcodegen.shoelace.SlInput.{value as _, *}
   import webcodegen.shoelace.SlButton.{value as _, *}
+  import webcodegen.shoelace.SlInput
 
   val contactDeviceAddress = Var("")
 
@@ -318,6 +317,8 @@ def addContact = {
     // camera,
     display.flex,
     slInput(
+      // VMod.attr("size") := "large",
+      // SlInput.size := "large",
       placeholder := "Public device id of contact",
       value <-- contactDeviceAddress,
       onSlChange.map(_.target.value) --> contactDeviceAddress,
