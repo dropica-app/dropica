@@ -17,7 +17,7 @@ trait AppScalaModule extends ScalaModule {
     val authn    = "0.1.3"
     val colibri  = "0.8.4"
     val outwatch = "1.0.0"
-    val sloth    = "0.7.4"
+    val sloth    = "0.7.5"
   }
   def ivyDeps = Agg(
     ivy"org.typelevel::cats-effect::3.5.4",
@@ -58,7 +58,7 @@ object frontend extends AppScalaJSModule with WebCodegenModule {
     ivy"com.github.cornerman::colibri-reactive::${versions.colibri}",
     ivy"com.github.cornerman::colibri-fs2::${versions.colibri}",
     ivy"org.http4s::http4s-dom::0.2.11",
-    ivy"com.github.cornerman::sloth-http4s-client::${versions.sloth}",
+    ivy"com.github.cornerman::sloth-jsdom-client::${versions.sloth}",
     ivy"com.github.cornerman::keratin-authn-frontend::${versions.authn}",
     ivy"org.scala-js:scalajs-java-securerandom_sjs1_2.13:1.0.0",
   )

@@ -1,13 +1,7 @@
 package frontend
 
 import cats.effect.IO
-import sloth.ext.http4s.client.*
-import org.http4s.dom.*
-import org.http4s.Header
-import org.http4s.Headers
-import org.http4s.headers.Authorization
-import org.http4s.Credentials
-import org.http4s.AuthScheme
+import sloth.ext.jsdom.client.*
 import org.scalajs.dom.window.localStorage
 
 // import authn.frontend.AuthnClient
@@ -25,13 +19,11 @@ object RpcClient {
 
   val getDeviceSecret = IO(Option(localStorage.getItem("deviceSecret")))
 
-  val headers: IO[Headers] = lift {
-    Headers(unlift(getDeviceSecret).map(secret => Authorization(Credentials.Token(AuthScheme.Bearer, secret))).toList)
+  private val headers: IO[Map[String, String]] = getDeviceSecret.map { secret =>
+    secret.map(secret => "Authorization" -> s"Bearer $secret").toMap
   }
-
   private val httpConfig    = headers.map(headers => HttpRequestConfig(headers = headers))
-  private val fetchClient   = FetchClientBuilder[IO].create
-  private val requestClient = sloth.Client[String, IO](HttpRpcTransport(fetchClient, httpConfig))
+  private val requestClient = sloth.Client[String, IO](HttpRpcTransport(httpConfig))
 
   val call: rpc.RpcApi = requestClient.wire[rpc.RpcApi]
 }
