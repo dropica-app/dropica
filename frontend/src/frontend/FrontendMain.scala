@@ -13,7 +13,6 @@ import org.scalajs.dom.{window, Position}
 import scala.scalajs.js
 import org.scalajs.dom.PositionOptions
 import scala.annotation.nowarn
-import concurrent.duration._
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
