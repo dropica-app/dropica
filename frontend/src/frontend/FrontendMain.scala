@@ -13,6 +13,7 @@ import org.scalajs.dom.{window, Position}
 import scala.scalajs.js
 import org.scalajs.dom.PositionOptions
 import scala.annotation.nowarn
+import concurrent.duration._
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
@@ -23,28 +24,6 @@ object Main extends IOApp.Simple {
     val deviceSecret = unlift(RpcClient.getDeviceSecret).getOrElse(java.util.UUID.randomUUID().toString)
     localStorage.setItem("deviceSecret", deviceSecret)
     unlift(RpcClient.call.registerDevice(deviceSecret))
-
-    val positionEvents = RxEvent.observable(
-      Observable
-        .create[dom.Position] { observer =>
-          val watchId = window.navigator.geolocation.watchPosition(
-            position => observer.unsafeOnNext(position),
-            error => observer.unsafeOnError(Exception(error.message)),
-            js.Dynamic.literal(enableHighAccuracy = true, timeout = Double.PositiveInfinity, maximumAge = 0).asInstanceOf[PositionOptions],
-          )
-          Cancelable(() => window.navigator.geolocation.clearWatch(watchId))
-        }
-    )
-
-    val locationEvents = positionEvents.map(position =>
-      rpc.Location(
-        lat = position.coords.latitude,
-        lon = position.coords.longitude,
-        accuracy = position.coords.accuracy,
-        altitude = position.coords.altitude,
-        altitudeAccuracy = position.coords.altitudeAccuracy,
-      )
-    )
 
     // def getCurrentPositionPromise(options: PositionOptions): IO[Position] = IO.async_ { callback =>
     //   window.navigator.geolocation.getCurrentPosition(value => callback(Right(value)), error => callback(Left(Exception(error.message))))
@@ -80,6 +59,45 @@ object Main extends IOApp.Simple {
     // render the component into the <div id="app"></div> in index.html
     unlift(Outwatch.renderReplace[IO]("#app", myComponent, RenderConfig.showError))
   }
+
+}
+
+val positionEvents = RxEvent.observable(
+  Observable
+    .create[dom.Position] { observer =>
+      val watchId = window.navigator.geolocation.watchPosition(
+        position => observer.unsafeOnNext(position),
+        error => observer.unsafeOnError(Exception(error.message)),
+        js.Dynamic.literal(enableHighAccuracy = true, timeout = Double.PositiveInfinity, maximumAge = 0).asInstanceOf[PositionOptions],
+      )
+      Cancelable(() => window.navigator.geolocation.clearWatch(watchId))
+    }
+)
+
+val locationEvents = positionEvents.map(position =>
+  rpc.Location(
+    lat = position.coords.latitude,
+    lon = position.coords.longitude,
+    accuracy = position.coords.accuracy,
+    altitude = position.coords.altitude,
+    altitudeAccuracy = position.coords.altitudeAccuracy,
+  )
+)
+
+def nextAccurateLocation(defaultLocation: rpc.Location): IO[rpc.Location] = {
+  Observable
+    .race(
+      // any location with high accuracy will be immediately accepted
+      locationEvents.observable.filter(_.accuracy <= 5),
+      // or the most accurate location in the next 3 seconds, starting with defaultLocation
+      locationEvents.observable
+        // .take(1)
+        .scan(defaultLocation)((min, next) => if (next.accuracy < min.accuracy) next else min)
+        .sampleMillis(3000),
+      // .takeUntil(Observable.fromEffect(IO.sleep(3.seconds))) // TODO colibri completion bug with takeUntil?
+
+    )
+    .headIO
 }
 
 def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
@@ -98,10 +116,13 @@ def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Loc
 
 def createMessageForm(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
-  import webcodegen.shoelace.SlInput.{value as _, *}
+  import webcodegen.shoelace.SlButton
+  import webcodegen.shoelace.SlTextarea.{value as _, *}
+  import webcodegen.shoelace.SlTextarea
 
   val messageContentState = Var("")
   val errorState          = Var("")
+  val loadingState        = Var(false)
 
   def submit(content: String, location: rpc.Location): IO[Unit] =
     lift[IO] {
@@ -116,24 +137,32 @@ def createMessageForm(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rp
   div(
     div(
       display.flex,
-      slInput(
+      slTextarea(
         placeholder := "type message",
+        width := "100%",
+        rows := 1,
+        SlTextarea.resize := "auto", // TODO: jump in firefox -> shoelace bug?
         value <-- messageContentState,
         onSlChange.map(_.target.value) --> messageContentState,
-        width := "100%",
-        onKeyPress
-          .filter(_.keyCode == dom.KeyCode.Enter)
-          .async
-          .stopPropagation
-          .preventDefault
-          .asLatest(messageContentState)
-          .withLatest(locationEvents)
-          .foreachEffect(submit),
-        // enterkeyhint := "done",
       ),
       slButton(
         "create",
-        onClick(messageContentState).withLatest(locationEvents).foreachEffect(submit),
+        loading <-- loadingState,
+        SlButton.disabled := true,
+        locationEvents.observable.head.map { location =>
+          VMod(
+            SlButton.disabled := false,
+            onClick(messageContentState)
+              .withEffect(lift[IO] {
+                // TODO: one big lift block in onClick?
+                loadingState.set(true)
+                val loc = unlift(nextAccurateLocation(defaultLocation = location))
+                loadingState.set(false)
+                loc
+              })
+              .foreachEffect(submit),
+          )
+        },
       ),
     ),
     div(errorState, color := "var(--sl-color-gray-900)"),
