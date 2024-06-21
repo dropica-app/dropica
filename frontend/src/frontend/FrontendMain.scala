@@ -212,22 +212,22 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
             ),
           ),
         )
-      val dropButton = locationEvents.observable.head.map { location =>
-        val loadingState = Var(false)
-        slButton(
-          "drop",
-          loading <-- loadingState,
-          onClick.stopPropagation.doEffect(
-            lift[IO] {
-              loadingState.set(true)
-              val accLoc = unlift(nextAccurateLocation(defaultLocation = location))
-              unlift(RpcClient.call.dropMessage(message.messageId, accLoc).void)
-              loadingState.set(false)
-              refreshTrigger.set(())
-            }
-          ),
-        )
-      }
+        val dropButton = locationEvents.observable.head.map { location =>
+          val loadingState = Var(false)
+          slButton(
+            "drop",
+            loading <-- loadingState,
+            onClick.stopPropagation.doEffect(
+              lift[IO] {
+                loadingState.set(true)
+                val accLoc = unlift(nextAccurateLocation(defaultLocation = location))
+                unlift(RpcClient.call.dropMessage(message.messageId, accLoc).void)
+                loadingState.set(false)
+                refreshTrigger.set(())
+              }
+            ),
+          )
+        }
 
       renderMessage(
         refreshTrigger,
