@@ -229,6 +229,7 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
           renderMessage(
             refreshTrigger,
             message,
+            multiLine = true,
             actions = Some(VMod(dropButton)),
           )(marginTop := "8px")
 
@@ -276,6 +277,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
                   renderMessage(
                     refreshTrigger,
                     message,
+                    multiLine = false,
                     messageLocation = Some(messageLocation),
                     location = Some(location),
                     actions = Option.when(messageLocation.geodesicDistanceRangeTo(location)._1 < 10)(
@@ -300,6 +302,7 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
 def renderMessage(
   refreshTrigger: VarEvent[Unit],
   message: rpc.Message,
+  multiLine: Boolean,
   messageLocation: Option[rpc.Location] = None,
   location: Option[rpc.Location] = None,
   onClickEffect: Option[IO[Unit]] = None,
@@ -311,12 +314,39 @@ def renderMessage(
     backgroundColor := "var(--sl-color-gray-100)",
     color := "var(--sl-color-gray-900)",
     borderRadius := "5px",
-    div(message.content, padding := "16px", marginRight.auto),
+    div(
+      if (multiLine)
+        VMod(
+          message.content,
+          VMod.style("white-space") := "break-spaces",
+          wordWrap.breakWord,
+        )
+      else // only first line
+        VMod(
+          message.content.takeWhile(_ != '\n'),
+          textOverflow.ellipsis,
+          whiteSpace.pre,
+          overflow.hidden,
+          location.map(l =>
+            messageLocation.map { ml =>
+              // at 100m distance show 0 characters => maxWidth := 0
+              // at 0m show 100characters => maxWidth :=  100
+              val range       = l.geodesicDistanceRangeTo(ml)
+              val limitMeters = 100
+              maxWidth := s"${limitMeters - range._1.min(limitMeters)}em"
+            }
+          ),
+        ),
+      width := "100%",
+      minWidth := "0", // fix, so that other items don't shrink
+      padding := "16px",
+      marginRight.auto,
+    ),
     location.map(l =>
       messageLocation.map { ml =>
         val range = l.geodesicDistanceRangeTo(ml)
 
-        div(f"${range._1}%.0f-${range._2}%.0fm", color := "var(--sl-color-gray-600)", padding := "16px")
+        div(f"${range._1}%.0f-${range._2}%.0fm", color := "var(--sl-color-gray-600)", padding := "16px", flexShrink := 0)
       }
     ),
     actions.map(actions => div(actions, flexShrink := 0, paddingTop := "5px", paddingRight := "5px")),
