@@ -136,6 +136,7 @@ def createMessageForm(refreshTrigger: VarEvent[Unit]) = {
       ),
     ),
     div(errorState, color := "var(--sl-color-gray-900)"),
+    marginBottom := "10px",
   )
 }
 
