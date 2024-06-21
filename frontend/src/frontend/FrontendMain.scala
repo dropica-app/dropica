@@ -322,17 +322,21 @@ def renderMessage(
         )
       else // only first line
         VMod(
-          message.content.takeWhile(_ != '\n'),
           textOverflow.ellipsis,
           whiteSpace.pre,
           overflow.hidden,
           location.map(l =>
             messageLocation.map { ml =>
-              // at 100m distance show 0 characters => maxWidth := 0
-              // at 0m show 100characters => maxWidth :=  100
+              // at 100m distance show 0 characters
+              // at 0m show ~10 characters
               val range       = l.geodesicDistanceRangeTo(ml)
               val limitMeters = 100
-              maxWidth := s"${limitMeters - range._1.min(limitMeters)}em"
+              val emPerMeter  = 0.1
+              val maxWidthEm  = (limitMeters - range._1.min(limitMeters)) * emPerMeter
+              VMod(
+                maxWidth := s"${maxWidthEm}em", // for low numbers, only shows ellipsis if there is enough space for it
+                if (maxWidthEm > 1) message.content.takeWhile(_ != '\n') else "…",
+              )
             }
           ),
         ),
