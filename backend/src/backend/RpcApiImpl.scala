@@ -212,7 +212,8 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           sin(radians(p.target_latitude)) * sin(radians(c.lat))
         )) <= p.search_radius
       ORDER BY
-        distance;
+        distance
+      LIMIT 200;
       """.query[db.Location].run()
     locations.view
       .flatMap(l => db.MessageRepo.findByIndexOnAtLocation(Some(l.locationId)).map(m => (m.to[rpc.Message], l.to[rpc.Location])))
