@@ -4,7 +4,7 @@ import $repo.`https://oss.sonatype.org/content/repositories/snapshots`
 import $repo.`https://oss.sonatype.org/content/repositories/public`
 
 import $ivy.`com.github.cornerman::mill-db-codegen:0.5.0`, dbcodegen.plugin._
-import $ivy.`com.github.cornerman::mill-web-components-codegen:0.1.1`, webcodegen.plugin._
+import $ivy.`com.github.cornerman::mill-web-components-codegen:0.1.2`, webcodegen.plugin._
 
 import mill.scalajslib._
 import mill.scalajslib.api._
