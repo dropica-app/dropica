@@ -229,12 +229,12 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
           )
         }
 
-      renderMessage(
-        refreshTrigger,
-        message,
-        multiLine = true,
-        actions = Some(VMod(dropButton)),
-      )(marginTop := "8px")
+        renderMessage(
+          refreshTrigger,
+          message,
+          multiLine = true,
+          actions = Some(VMod(dropButton)),
+        )(marginTop := "8px")
 
       }),
   )
