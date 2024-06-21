@@ -144,11 +144,14 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  def createMessage(content: String): IO[Boolean] = withDevice(deviceProfile =>
+  def createMessage(content: String, location: rpc.Location): IO[Boolean] = withDevice(deviceProfile =>
     IO {
       magnum.transact(ds) {
+        val targetLocation = db.LocationRepo.insertReturning(
+          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitudeAccuracy)
+        )
         Either.catchNonFatal(
-          db.MessageRepo.insert(db.Message.Creator(content, onDevice = Some(deviceProfile.deviceId), atLocation = None))
+          db.MessageRepo.insert(db.Message.Creator(content, onDevice = None, atLocation = Some(targetLocation.locationId)))
         ) match {
           case Left(e) =>
             scribe.error(e)

@@ -8,15 +8,16 @@ trait RpcApi {
   def registerDevice(deviceSecret: String): IO[Unit]
 
   def getDeviceAddress: IO[String]
-  def getMessagesOnDevice: IO[Vector[Message]]
   def getMessagesAtLocation(location: Location): IO[Vector[(Message, Location)]]
-  def getContacts: IO[Vector[String]]
+  def getMessagesOnDevice: IO[Vector[Message]]
 
-  def sendMessage(messageId: Int, deviceAddress: String): IO[Boolean]
+  def createMessage(content: String, location: Location): IO[Boolean]
   def pickupMessage(messageId: Int, location: Location): IO[Boolean]
   def dropMessage(messageId: Int, location: Location): IO[Boolean]
-  def createMessage(content: String): IO[Boolean]
+
+  def getContacts: IO[Vector[String]]
   def addContact(targetDeviceAddress: String): IO[Boolean]
+  def sendMessage(messageId: Int, deviceAddress: String): IO[Boolean]
 }
 
 case class Location(lat: Double, lon: Double, accuracy: Double, altitude: Double, altitudeAccuracy: Double) derives ReadWriter {

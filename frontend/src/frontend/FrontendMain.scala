@@ -92,21 +92,21 @@ def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Loc
     messagesNearby(refreshTrigger, locationEvents)(height := "50%"),
     div("On Device", textAlign.center, marginTop := "30px", color := "var(--sl-color-gray-600)"),
     messagesOnDevice(refreshTrigger, locationEvents)(height := "50%"),
-    createMessageForm(refreshTrigger)(flexShrink := 0),
+    createMessageForm(refreshTrigger, locationEvents)(flexShrink := 0),
   )
 }
 
-def createMessageForm(refreshTrigger: VarEvent[Unit]) = {
+def createMessageForm(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
   import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlInput.{value as _, *}
 
   val messageContentState = Var("")
   val errorState          = Var("")
 
-  def submit(content: String): IO[Unit] =
+  def submit(content: String, location: rpc.Location): IO[Unit] =
     lift[IO] {
       messageContentState.set("")
-      if (unlift(RpcClient.call.createMessage(content)))
+      if (unlift(RpcClient.call.createMessage(content.trim(), location)))
         errorState.set("")
       else
         errorState.set("Message already exists.")
@@ -127,12 +127,13 @@ def createMessageForm(refreshTrigger: VarEvent[Unit]) = {
           .stopPropagation
           .preventDefault
           .asLatest(messageContentState)
+          .withLatest(locationEvents)
           .foreachEffect(submit),
         // enterkeyhint := "done",
       ),
       slButton(
         "create",
-        onClick(messageContentState.map(_.trim())).foreachEffect(submit),
+        onClick(messageContentState).withLatest(locationEvents).foreachEffect(submit),
       ),
     ),
     div(errorState, color := "var(--sl-color-gray-900)"),
