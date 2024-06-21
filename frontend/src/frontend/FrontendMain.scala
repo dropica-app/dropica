@@ -155,9 +155,9 @@ def createMessageForm(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rp
               .withEffect(lift[IO] {
                 // TODO: one big lift block in onClick?
                 loadingState.set(true)
-                val loc = unlift(nextAccurateLocation(defaultLocation = location))
+                val accLoc = unlift(nextAccurateLocation(defaultLocation = location))
                 loadingState.set(false)
-                loc
+                accLoc
               })
               .foreachEffect(submit),
           )
@@ -184,56 +184,59 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
     flexDirection.column,
     height := "100%",
     overflowY := "scroll",
-    locationEvents.toRx.observable.switchMap(locationOpt => {
-      refreshTrigger.observable
-        .prepend(())
-        .asEffect(RpcClient.call.getMessagesOnDevice)
-        .map(_.map { message =>
-          val openDialog = Var(false)
-          @nowarn
-          val sendButton = VMod(
-            slButton("send", onClick.as(true) --> openDialog),
-            slDialog(
-              open <-- openDialog,
-              onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
-              div(
-                b(message.content),
-                height := "500px",
-                slSelect(
-                  onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
-                  contacts.map(_.map { deviceAddress =>
-                    slOption(value := deviceAddress, deviceAddress)
-                  }),
-                ),
-              ),
-              div(
-                slotFooter,
-                display.flex,
-                slButton("Send to contact", onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void)),
+    refreshTrigger.observable
+      .prepend(())
+      .asEffect(RpcClient.call.getMessagesOnDevice)
+      .map(_.map { message =>
+        val openDialog = Var(false)
+        @nowarn
+        val sendButton = VMod(
+          slButton("send", onClick.as(true) --> openDialog),
+          slDialog(
+            open <-- openDialog,
+            onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
+            div(
+              b(message.content),
+              height := "500px",
+              slSelect(
+                onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
+                contacts.map(_.map { deviceAddress =>
+                  slOption(value := deviceAddress, deviceAddress)
+                }),
               ),
             ),
-          )
-          val dropButton = locationOpt.map(location =>
-            slButton(
-              "drop",
-              onClick.stopPropagation.doEffect(
-                lift[IO] {
-                  unlift(RpcClient.call.dropMessage(message.messageId, location).void)
-                  refreshTrigger.set(())
-                }
-              ),
-            )
-          )
+            div(
+              slotFooter,
+              display.flex,
+              slButton("Send to contact", onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void)),
+            ),
+          ),
+        )
+      val dropButton = locationEvents.observable.head.map { location =>
+        val loadingState = Var(false)
+        slButton(
+          "drop",
+          loading <-- loadingState,
+          onClick.stopPropagation.doEffect(
+            lift[IO] {
+              loadingState.set(true)
+              val accLoc = unlift(nextAccurateLocation(defaultLocation = location))
+              unlift(RpcClient.call.dropMessage(message.messageId, accLoc).void)
+              loadingState.set(false)
+              refreshTrigger.set(())
+            }
+          ),
+        )
+      }
 
-          renderMessage(
-            refreshTrigger,
-            message,
-            multiLine = true,
-            actions = Some(VMod(dropButton)),
-          )(marginTop := "8px")
+      renderMessage(
+        refreshTrigger,
+        message,
+        multiLine = true,
+        actions = Some(VMod(dropButton)),
+      )(marginTop := "8px")
 
-        })
-    }),
+      }),
   )
 }
 
