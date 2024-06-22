@@ -13,6 +13,7 @@ import org.scalajs.dom.{window, Position}
 import scala.scalajs.js
 import org.scalajs.dom.PositionOptions
 import scala.annotation.nowarn
+import cats.effect.unsafe.implicits.global
 // import authn.frontend.authnJS.keratinAuthn.distTypesMod.Credentials
 
 // Outwatch documentation: https://outwatch.github.io/docs/readme.html
@@ -100,12 +101,24 @@ def nextAccurateLocation(defaultLocation: rpc.Location): IO[rpc.Location] = {
 }
 
 def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
+  // import webcodegen.shoelace.SlIcon.*
   div(
     display.flex,
     flexDirection.column,
     paddingLeft := "5px",
     paddingRight := "5px",
     height := "100%",
+    div(
+      textAlign.center,
+      marginTop := "10px",
+      color := "var(--sl-color-gray-600)",
+      span(
+        // slIcon(name := "geo-alt"),
+        "Messages Nearby",
+        locationEvents.observable
+          .map(p => f" (±${p.accuracy}%.0fm)"),
+      ),
+    ),
     messagesNearby(refreshTrigger, locationEvents)(height := "50%"),
     div("On Device", textAlign.center, marginTop := "30px", color := "var(--sl-color-gray-600)"),
     messagesOnDevice(refreshTrigger, locationEvents)(height := "50%"),
@@ -184,59 +197,72 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
     flexDirection.column,
     height := "100%",
     overflowY := "scroll",
-    refreshTrigger.observable
-      .prepend(())
-      .asEffect(RpcClient.call.getMessagesOnDevice)
-      .map(_.map { message =>
-        val openDialog = Var(false)
-        @nowarn
-        val sendButton = VMod(
-          slButton("send", onClick.as(true) --> openDialog),
-          slDialog(
-            open <-- openDialog,
-            onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
-            div(
-              b(message.content),
-              height := "500px",
-              slSelect(
-                onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
-                contacts.map(_.map { deviceAddress =>
-                  slOption(value := deviceAddress, deviceAddress)
-                }),
-              ),
-            ),
-            div(
-              slotFooter,
-              display.flex,
-              slButton("Send to contact", onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void)),
-            ),
-          ),
-        )
-        val dropButton = locationEvents.observable.head.map { location =>
-          val loadingState = Var(false)
-          slButton(
-            "drop",
-            loading <-- loadingState,
-            onClick.stopPropagation.doEffect(
-              lift[IO] {
-                loadingState.set(true)
-                val accLoc = unlift(nextAccurateLocation(defaultLocation = location))
-                unlift(RpcClient.call.dropMessage(message.messageId, accLoc).void)
-                loadingState.set(false)
-                refreshTrigger.set(())
+    locationEvents.toRx.observable
+      .takeWhileInclusive(_.isEmpty)
+      .map(_.isDefined)
+      .map { hasLocation =>
+        refreshTrigger.observable
+          .prepend(())
+          .asEffect(RpcClient.call.getMessagesOnDevice)
+          .map(
+            _.map { message =>
+              val openDialog = Var(false)
+              @nowarn
+              val sendButton = VMod(
+                slButton("send", onClick.as(true) --> openDialog),
+                slDialog(
+                  open <-- openDialog,
+                  onSlAfterHide.onlyOwnEvents.as(false) --> openDialog,
+                  div(
+                    b(message.content),
+                    height := "500px",
+                    slSelect(
+                      onSlChange.map(_.target.value).collect { case s: String => s } --> selectedProfile,
+                      contacts.map(_.map { deviceAddress =>
+                        slOption(value := deviceAddress, deviceAddress)
+                      }),
+                    ),
+                  ),
+                  div(
+                    slotFooter,
+                    display.flex,
+                    slButton(
+                      "Send to contact",
+                      onClick(selectedProfile).foreachEffect(RpcClient.call.sendMessage(message.messageId, _).void),
+                    ),
+                  ),
+                ),
+              )
+              val dropButton = {
+                val loadingState = Var(false)
+                slButton(
+                  "drop",
+                  loading <-- loadingState,
+                  VMod.when(hasLocation) {
+                    onClick.stopPropagation.doAction(
+                      lift[IO] {
+                        loadingState.set(true)
+                        val latestLocation = unlift(locationEvents.observable.headIO)
+                        val accLoc         = unlift(nextAccurateLocation(defaultLocation = latestLocation))
+                        unlift(RpcClient.call.dropMessage(message.messageId, accLoc).void)
+                        loadingState.set(false)
+                        refreshTrigger.set(())
+                      }.unsafeRunAndForget()
+                    )
+                  },
+                )
               }
-            ),
+
+              renderMessage(
+                refreshTrigger,
+                message,
+                multiLine = true,
+                actions = Some(VMod(dropButton)),
+              )(marginTop := "8px")
+
+            }
           )
-        }
-
-        renderMessage(
-          refreshTrigger,
-          message,
-          multiLine = true,
-          actions = Some(VMod(dropButton)),
-        )(marginTop := "8px")
-
-      }),
+      },
   )
 }
 
@@ -245,49 +271,37 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
   import webcodegen.shoelace.SlSpinner.*
 
   div(
-    marginTop := "10px",
     display.flex,
     flexDirection.column,
     color := "var(--sl-color-gray-600)",
-    div("Nearby", textAlign.center),
-    div(
-      display.flex,
-      justifyContent.center,
-      div(
-        fontSize := "var(--sl-font-size-x-small)",
-        locationEvents.observable
-          .map(p =>
-            div(
-              f"Location Accuracy: ${p.accuracy}%.0fm"
-            )
-          )
-          .prepend(slSpinner(fontSize := "3rem", marginTop := "30px")),
-      ),
-    ),
     div(
       overflowY := "scroll",
       Observable
-        .intervalMillis(3000)
-        .withLatest(locationEvents.observable)
-        .switchMap { case (_, location) =>
-          refreshTrigger.observable
-            .prepend(())
-            .asEffect(RpcClient.call.getMessagesAtLocation(location))
-            .map(
-              _.sortBy { case (message, messageLocation) => messageLocation.geodesicDistanceRangeTo(location).swap }.map {
+        .merge(
+          Observable.unit,
+          Observable.intervalMillis(3000).void,
+          refreshTrigger.observable,
+        )
+        .withLatestMap(locationEvents.observable)((_, deviceLocation) => deviceLocation)
+        .switchMapEffect[IO, VMod](deviceLocation =>
+          RpcClient.call
+            .getMessagesAtLocation(deviceLocation)
+            .map((_, deviceLocation))
+            .map { (messages, deviceLocation) =>
+              messages.sortBy { case (message, messageLocation) => messageLocation.geodesicDistanceRangeTo(deviceLocation).swap }.map {
                 case (message, messageLocation) =>
                   renderMessage(
                     refreshTrigger,
                     message,
                     multiLine = false,
                     messageLocation = Some(messageLocation),
-                    location = Some(location),
-                    actions = Option.when(messageLocation.geodesicDistanceRangeTo(location)._1 < 10)(
+                    location = Some(deviceLocation),
+                    actions = Option.when(messageLocation.geodesicDistanceRangeTo(deviceLocation)._1 < 10)(
                       slButton(
                         "pick",
                         onClick.stopPropagation.doEffect(
                           lift[IO] {
-                            unlift(RpcClient.call.pickupMessage(message.messageId, location).void)
+                            unlift(RpcClient.call.pickupMessage(message.messageId, deviceLocation).void)
                             refreshTrigger.set(())
                           }
                         ),
@@ -295,8 +309,9 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
                     ),
                   )(marginTop := "8px")
               }
-            )
-        },
+            }
+        )
+        .prepend(div(textAlign.center, slSpinner(fontSize := "3rem", marginTop := "30px"))),
     ),
   )
 }
