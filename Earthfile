@@ -30,14 +30,13 @@ build-mill:
 
   ENV CI=true
   COPY build.sc schema.sql schema.scala.ssp ./
-  RUN devbox run -- mill -i __.compile # compile build setup
+  RUN devbox run -- mill __.compile # compile build setup
   COPY --dir rpc ./
   RUN devbox run -- mill 'rpc.{js,jvm}.compile'
   COPY --dir backend ./
   RUN devbox run -- mill backend.assembly
   COPY --dir frontend ./
-  RUN devbox run -- mill frontend.fullLinkJS \
-   && ls -l out
+  RUN devbox run -- mill frontend.fullLinkJS
   SAVE ARTIFACT out/backend/assembly.dest/out.jar backend.jar
   SAVE ARTIFACT out/frontend/fullLinkJS.dest frontend
 
@@ -78,7 +77,7 @@ build-docker:
     -Dcom.sun.management.jmxremote.ssl=false \
     -Dcom.sun.management.jmxremote.rmi.port=9010 \
     -Djava.rmi.server.hostname=localhost"
-  # add $JAVA_OPTS_DEBUG to be able to connect with a jmx debugger like visualvm
+  # add $JAVA_OPTS_DEBUG after $JAVA_OPTS to be able to connect with a jmx debugger like visualvm
   CMD echo "starting jvm..." && java $JAVA_OPTS -jar backend.jar Migrate HttpServer
   SAVE IMAGE app:latest
 
