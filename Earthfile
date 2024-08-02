@@ -109,7 +109,7 @@ scalafmt:
   FROM +devbox
   WORKDIR /code
   CACHE --chmod 0777 /home/devbox/.cache/coursier
-  COPY --dir .scalafmt.conf backend frontend rpc util ./
+  COPY --dir .scalafmt.conf backend frontend rpc ./
   RUN devbox run -- scalafmt --check
 
 lint:
