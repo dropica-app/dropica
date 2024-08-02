@@ -171,7 +171,11 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  private def queryNearbyMessages(location: rpc.Location)(using DbCon): Vector[(rpc.Message, rpc.Location)] = {
+  val maxSearchRadiusMeters = 40_075 // circumference of earth
+  val messageLimit          = 200
+  private def queryNearbyMessages(location: rpc.Location, searchRadiusMeters: Long = 500)(using
+    DbCon
+  ): Vector[(rpc.Message, rpc.Location)] = {
     val locationWebMercator = location.toWebMercator
     // TODO coordinate wrap around at date line
     val locations = sql"""
@@ -182,7 +186,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           ${locationWebMercator.y} AS target_y, -- Web Mercator y-coordinate of the target
           ${location.lat} AS target_latitude,
           ${location.lon} AS target_longitude,
-          500.0 AS search_radius -- Adjust this value as needed
+          ${searchRadiusMeters} AS search_radius -- Adjust this value as needed
       ),
       candidates AS (
         SELECT
@@ -216,11 +220,23 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
         )) <= p.search_radius
       ORDER BY
         distance
-      LIMIT 200;
+      LIMIT ${messageLimit};
       """.query[db.Location].run()
-    locations.view
+
+    val rpcLocations = locations.view
       .flatMap(l => db.MessageRepo.findByIndexOnAtLocation(Some(l.locationId)).map(m => (m.to[rpc.Message], l.to[rpc.Location])))
       .toVector
+
+    if (rpcLocations.size >= messageLimit || searchRadiusMeters > maxSearchRadiusMeters)
+      // we got what we wanted
+      rpcLocations
+    else {
+      scribe.info(
+        s"searching at ${location.lat},${location.lon} with radius ${searchRadiusMeters}m only found ${rpcLocations.size} messages"
+      )
+      // if we didn't find enough messages in search radius, increase it
+      queryNearbyMessages(location, searchRadiusMeters * 2)
+    }
   }
 
   def getMessagesAtLocation(location: rpc.Location): IO[Vector[(rpc.Message, rpc.Location)]] = withDevice(deviceProfile =>
