@@ -5,13 +5,20 @@ _default:
 dev:
     process-compose up -t=false
 
+dev-tui:
+    process-compose up -t=true
+
 db:
   sqlite3 data.db
 
 gen-bsp:
     mill mill.bsp.BSP/install
 
-docker:
+# creates a new migration by diffing existing migrations against schema.sql
+new-migration name:
+  scripts/new-db-migration-atlas "{{name}}"
+
+docker-build:
   earthly +build-docker
 
 docker-run:
