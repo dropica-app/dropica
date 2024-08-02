@@ -227,7 +227,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
       .flatMap(l => db.MessageRepo.findByIndexOnAtLocation(Some(l.locationId)).map(m => (m.to[rpc.Message], l.to[rpc.Location])))
       .toVector
 
-    if (rpcLocations.size >= messageLimit || searchRadiusMeters > maxSearchRadiusMeters)
+    if (rpcLocations.nonEmpty || searchRadiusMeters > maxSearchRadiusMeters)
       // we got what we wanted
       rpcLocations
     else {
