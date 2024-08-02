@@ -13,13 +13,20 @@
   <meta name="msapplication-TileColor" content="#2d89ef">
   <meta name="theme-color" content="#ffffff">
 
-  <title>Dropica</title>
+  <!-- https://shoelace.style/getting-started/installation#light-and-dark-theme //-->
+  <link
+    rel="stylesheet"
+    media="(prefers-color-scheme:light)"
+    href="shoelace/themes/light.css"
+  />
+  <link
+    rel="stylesheet"
+    media="(prefers-color-scheme:dark)"
+    href="shoelace/themes/dark.css"
+    onload="document.documentElement.classList.add('sl-theme-dark');"
+  />
 
-  <link rel="stylesheet" media="(prefers-color-scheme:light)"
-    href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css" />
-  <link rel="stylesheet" media="(prefers-color-scheme:dark)"
-    href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/dark.css"
-    onload="document.documentElement.classList.add('sl-theme-dark');" />
+  <title>Dropica</title>
 </head>
 
 <body>

@@ -58,7 +58,7 @@ build-vite:
   WORKDIR /code
   COPY --dir +build-node-modules/node_modules ./
   COPY +build-mill/frontend ./out/frontend/fullLinkJS.dest
-  COPY --dir main.js index.html vite.config.ts style.css public ./
+  COPY --dir main.js index.html vite.config.mts style.css public ./
   RUN devbox run -- bunx vite build
   SAVE ARTIFACT --keep-ts dist # timestamps must be kept for browser caching
 
@@ -92,7 +92,8 @@ app-deploy:
   # run locally:
   # FLY_API_TOKEN=$(flyctl tokens create deploy) earthly --allow-privileged --secret FLY_API_TOKEN -i +app-deploy --COMMIT_SHA=<xxxxxx>
   ARG --required COMMIT_SHA
-  ARG IMAGE="registry.fly.io/dropica:deployment-$COMMIT_SHA"
+  ARG --required FLY_APP_NAME
+  ARG IMAGE="registry.fly.io/$FLY_APP_NAME:deployment-$COMMIT_SHA"
   FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
   RUN apk add curl \
    && set -eo pipefail; curl -L https://fly.io/install.sh | sh
@@ -126,4 +127,5 @@ ci-deploy:
   # FLY_API_TOKEN=$(flyctl tokens create deploy) earthly --allow-privileged --secret FLY_API_TOKEN +ci-deploy --COMMIT_SHA=$(git rev-parse HEAD)
   BUILD +ci-test
   ARG --required COMMIT_SHA
-  BUILD +app-deploy --COMMIT_SHA=$COMMIT_SHA
+  ARG --required FLY_APP_NAME
+  BUILD +app-deploy --COMMIT_SHA=$COMMIT_SHA --FLY_APP_NAME=$FLY_APP_NAME
