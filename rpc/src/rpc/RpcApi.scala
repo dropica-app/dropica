@@ -8,12 +8,12 @@ trait RpcApi {
   def registerDevice(deviceSecret: String): IO[Unit]
 
   def getDeviceAddress: IO[String]
-  def getMessagesAtLocation(location: Location): IO[Vector[(Message, Location)]]
+  def getMessagesAtLocation(location: Location, codeword: String): IO[Vector[(Message, Location)]]
   def getMessagesOnDevice: IO[Vector[Message]]
 
-  def createMessage(content: String, location: Location): IO[Boolean]
-  def pickupMessage(messageId: Int, location: Location): IO[Boolean]
-  def dropMessage(messageId: Int, location: Location): IO[Boolean]
+  def createMessage(content: String, location: Location, codeword: String): IO[Boolean]
+  def pickupMessage(messageId: Int, location: Location, codeword: String): IO[Boolean]
+  def dropMessage(messageId: Int, location: Location, codeword: String): IO[Boolean]
 
   def getContacts: IO[Vector[String]]
   def addContact(targetDeviceAddress: String): IO[Boolean]

@@ -41,7 +41,8 @@ create table location(
   ), -- TODO: stored
   y real not null generated always as (
       6378137.0 * ln(tan((pi() / 4.0) + (lat * pi() / 360.0)))
-  ) -- TODO: stored
+  ), -- TODO: stored
+  codeword text not null
 ) strict;
 
 create virtual table spatial_index using rtree(location_id, minx, maxx, miny, maxy);

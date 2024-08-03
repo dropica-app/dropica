@@ -100,13 +100,13 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  def dropMessage(messageId: Int, location: rpc.Location): IO[Boolean] = withDevice(deviceProfile =>
+  def dropMessage(messageId: Int, location: rpc.Location, codeword: String): IO[Boolean] = withDevice(deviceProfile =>
     IO {
       // you can only drop it, if it's on your device
       magnum.transact(ds) {
         val message = db.MessageRepo.findById(messageId).get
         val targetLocation = db.LocationRepo.insertReturning(
-          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitudeAccuracy)
+          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitudeAccuracy, codeword)
         )
         val messageIsOnDevice = message.onDevice.contains(deviceProfile.deviceId)
         scribe.info(s"message $messageId is on device: $messageIsOnDevice, moving to ${targetLocation.toString}")
@@ -125,12 +125,12 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  def pickupMessage(messageId: Int, location: rpc.Location): IO[Boolean] = withDevice(deviceProfile =>
+  def pickupMessage(messageId: Int, location: rpc.Location, codeword: String): IO[Boolean] = withDevice(deviceProfile =>
     IO {
       // you can only pick up a message, if it is close to your location
       magnum.transact(ds) {
         val message            = db.MessageRepo.findById(messageId).get
-        val messagesAtLocation = queryNearbyMessages(location)
+        val messagesAtLocation = queryNearbyMessages(location, codeword)
         if (messagesAtLocation.exists(_._1.messageId == messageId)) {
           db.MessageRepo.update(message.copy(onDevice = Some(deviceProfile.deviceId), atLocation = None))
           db.MessageHistoryRepo.insert(
@@ -144,11 +144,11 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
     }
   )
 
-  def createMessage(content: String, location: rpc.Location): IO[Boolean] = withDevice(deviceProfile =>
+  def createMessage(content: String, location: rpc.Location, codeword: String): IO[Boolean] = withDevice(deviceProfile =>
     IO {
       magnum.transact(ds) {
         val targetLocation = db.LocationRepo.insertReturning(
-          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitudeAccuracy)
+          db.Location.Creator(location.lat, location.lon, location.accuracy, location.altitude, location.altitudeAccuracy, codeword)
         )
         Either.catchNonFatal(
           db.MessageRepo.insert(db.Message.Creator(content, onDevice = None, atLocation = Some(targetLocation.locationId)))
@@ -173,7 +173,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
 
   val maxSearchRadiusMeters = 40_075 // circumference of earth
   val messageLimit          = 200
-  private def queryNearbyMessages(location: rpc.Location, searchRadiusMeters: Long = 500)(using
+  private def queryNearbyMessages(location: rpc.Location, codeword: String, searchRadiusMeters: Long = 500)(using
     DbCon
   ): Vector[(rpc.Message, rpc.Location)] = {
     val locationWebMercator = location.toWebMercator
@@ -202,7 +202,8 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
           si.minx <= p.target_x + p.search_radius AND
           si.maxx >= p.target_x - p.search_radius AND
           si.miny <= p.target_y + p.search_radius AND
-          si.maxy >= p.target_y - p.search_radius
+          si.maxy >= p.target_y - p.search_radius AND
+          codeword = ${codeword}
       )
       SELECT
         c.*,
@@ -235,14 +236,14 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
         s"searching at ${location.lat},${location.lon} with radius ${searchRadiusMeters}m only found ${rpcLocations.size} messages"
       )
       // if we didn't find enough messages in search radius, increase it
-      queryNearbyMessages(location, searchRadiusMeters * 2)
+      queryNearbyMessages(location, codeword, searchRadiusMeters * 2)
     }
   }
 
-  def getMessagesAtLocation(location: rpc.Location): IO[Vector[(rpc.Message, rpc.Location)]] = withDevice(deviceProfile =>
+  def getMessagesAtLocation(location: rpc.Location, codeword: String): IO[Vector[(rpc.Message, rpc.Location)]] = withDevice(deviceProfile =>
     IO {
       magnum.transact(ds) {
-        queryNearbyMessages(location)
+        queryNearbyMessages(location, codeword)
       }
     }
   )
