@@ -101,13 +101,17 @@ def nextAccurateLocation(defaultLocation: rpc.Location): IO[rpc.Location] = {
 }
 
 def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Location]) = {
+  import webcodegen.shoelace.SlInput.{value as _, *}
+  import webcodegen.shoelace.SlInput
   // import webcodegen.shoelace.SlIcon.*
+  val codewordState = Var("")
   div(
     display.flex,
     flexDirection.column,
     paddingLeft := "5px",
     paddingRight := "5px",
     height := "100%",
+    slInput(placeholder := "codeword", value <-- codewordState, onSlChange.value --> codewordState),
     div(
       textAlign.center,
       marginTop := "10px",
@@ -119,7 +123,7 @@ def messagePanel(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.Loc
           .map(p => f" (±${p.accuracy}%.0fm)"),
       ),
     ),
-    messagesNearby(refreshTrigger, locationEvents)(height := "50%"),
+    messagesNearby(refreshTrigger, locationEvents, codewordState)(height := "50%"),
     div("On Device", textAlign.center, marginTop := "30px", color := "var(--sl-color-gray-600)"),
     messagesOnDevice(refreshTrigger, locationEvents)(height := "50%"),
     createMessageForm(refreshTrigger, locationEvents)(flexShrink := 0),
@@ -139,7 +143,7 @@ def createMessageForm(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rp
   def submit(content: String, location: rpc.Location): IO[Unit] =
     lift[IO] {
       messageContentState.set("")
-      if (unlift(RpcClient.call.createMessage(content.trim(), location)))
+      if (unlift(RpcClient.call.createMessage(content.trim(), location, "")))
         errorState.set("")
       else
         errorState.set("Message already exists.")
@@ -155,7 +159,7 @@ def createMessageForm(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rp
         rows := 1,
         SlTextarea.resize := "auto", // TODO: jump in firefox -> shoelace bug?
         value <-- messageContentState,
-        onSlChange.map(_.target.value) --> messageContentState,
+        onSlChange.value --> messageContentState,
       ),
       slButton(
         "create",
@@ -244,7 +248,7 @@ def messagesOnDevice(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc
                         loadingState.set(true)
                         val latestLocation = unlift(locationEvents.observable.headIO)
                         val accLoc         = unlift(nextAccurateLocation(defaultLocation = latestLocation))
-                        unlift(RpcClient.call.dropMessage(message.messageId, accLoc).void)
+                        unlift(RpcClient.call.dropMessage(message.messageId, accLoc, "").void)
                         loadingState.set(false)
                         refreshTrigger.set(())
                       }.unsafeRunAndForget()
@@ -271,48 +275,43 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
   import webcodegen.shoelace.SlSpinner.*
 
   div(
-    display.flex,
-    flexDirection.column,
-    color := "var(--sl-color-gray-600)",
-    div(
-      overflowY := "scroll",
-      Observable
-        .merge(
-          Observable.unit,
-          Observable.intervalMillis(3000).void,
-          refreshTrigger.observable,
-        )
-        .withLatestMap(locationEvents.observable)((_, deviceLocation) => deviceLocation)
-        .switchMapEffect[IO, VMod](deviceLocation =>
-          RpcClient.call
-            .getMessagesAtLocation(deviceLocation)
-            .map((_, deviceLocation))
-            .map { (messages, deviceLocation) =>
-              messages.sortBy { case (message, messageLocation) => messageLocation.geodesicDistanceRangeTo(deviceLocation).swap }.map {
-                case (message, messageLocation) =>
-                  renderMessage(
-                    refreshTrigger,
-                    message,
-                    multiLine = false,
-                    messageLocation = Some(messageLocation),
-                    location = Some(deviceLocation),
-                    actions = Option.when(messageLocation.geodesicDistanceRangeTo(deviceLocation)._1 < 10)(
-                      slButton(
-                        "pick",
-                        onClick.stopPropagation.doEffect(
-                          lift[IO] {
-                            unlift(RpcClient.call.pickupMessage(message.messageId, deviceLocation).void)
-                            refreshTrigger.set(())
-                          }
-                        ),
-                      )
-                    ),
-                  )(marginTop := "8px")
-              }
+    overflowY := "scroll",
+    Observable
+      .merge(
+        Observable.unit,
+        Observable.intervalMillis(3000).void,
+        refreshTrigger.observable,
+      )
+      .withLatestMap(locationEvents.observable)((_, deviceLocation) => deviceLocation)
+      .switchMapEffect[IO, VMod](deviceLocation =>
+        RpcClient.call
+          .getMessagesAtLocation(deviceLocation, "")
+          .map((_, deviceLocation))
+          .map { (messages, deviceLocation) =>
+            messages.sortBy { case (message, messageLocation) => messageLocation.geodesicDistanceRangeTo(deviceLocation).swap }.map {
+              case (message, messageLocation) =>
+                renderMessage(
+                  refreshTrigger,
+                  message,
+                  multiLine = false,
+                  messageLocation = Some(messageLocation),
+                  location = Some(deviceLocation),
+                  actions = Option.when(messageLocation.geodesicDistanceRangeTo(deviceLocation)._1 < 10)(
+                    slButton(
+                      "pick",
+                      onClick.stopPropagation.doEffect(
+                        lift[IO] {
+                          unlift(RpcClient.call.pickupMessage(message.messageId, deviceLocation, "").void)
+                          refreshTrigger.set(())
+                        }
+                      ),
+                    )
+                  ),
+                )(marginTop := "8px")
             }
-        )
-        .prepend(div(textAlign.center, slSpinner(fontSize := "3rem", marginTop := "30px"))),
-    ),
+          }
+      )
+      .prepend(div(textAlign.center, slSpinner(fontSize := "3rem", marginTop := "30px"))),
   )
 }
 
@@ -399,8 +398,8 @@ def showDeviceAddress = {
 
 def addContact = {
   import webcodegen.shoelace.SlInput.{value as _, *}
-  import webcodegen.shoelace.SlButton.{value as _, *}
   import webcodegen.shoelace.SlInput
+  import webcodegen.shoelace.SlButton.{value as _, *}
 
   val contactDeviceAddress = Var("")
 
