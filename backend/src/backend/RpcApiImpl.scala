@@ -72,13 +72,7 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
       db.DeviceProfileRepo.findByIndexOnDeviceSecret(deviceSecret) match {
         case Some(_) => ()
         case None =>
-          val creator = db.DeviceProfile.Creator(
-            deviceSecret = deviceSecret,
-            deviceAddress = generateSecureDeviceAddress(10),
-          )
-          val _ = sql"""
-          insert into ${db.DeviceProfile.Table}(${db.DeviceProfile.Table.deviceSecret}, ${db.DeviceProfile.Table.deviceAddress}) values (${creator})
-          """.update.run()
+          backend.queries.registerDevice(device_secret = deviceSecret, device_address = generateSecureDeviceAddress(10))
       }
     }
   }.evalOn(dbec)

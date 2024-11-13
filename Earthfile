@@ -4,16 +4,11 @@ VERSION 0.8
 
 devbox:
   FROM jetpackio/devbox:latest
-  USER root:root
 
-  # cache nix-store
-  RUN mv /nix /nix_initial # backup devbox /nix folder
-  CACHE --chmod 0777 --persist /nix
-  # if folder from cache is empty, init with backup
-  RUN ([ "$(ls -A /nix)" ] || mv /nix_initial/* /nix/) && rm -r /nix_initial
-
+  # code generated using `devbox generate dockerfile`:
   # Installing your devbox project
   WORKDIR /code
+  USER root:root
   RUN mkdir -p /code && chown ${DEVBOX_USER}:${DEVBOX_USER} /code
   USER ${DEVBOX_USER}:${DEVBOX_USER}
   COPY --chown=${DEVBOX_USER}:${DEVBOX_USER} devbox.json devbox.json
@@ -27,6 +22,13 @@ test-migrations:
   COPY backend/resources/migrations backend/resources/migrations
   COPY scripts/diff_schemas scripts/diff_schemas
   RUN devbox run -- scripts/diff_schemas
+
+test-generate-query-code:
+  FROM +devbox
+  WORKDIR /code
+  COPY schema.sql queries.sql queries_template.go.tmpl sqlc.yml .scalafmt.conf ./
+  COPY backend/src/backend/queries/Queries.scala backend/src/backend/queries/
+  RUN devbox run -- "sqlc vet && sqlc diff"
 
 build-mill:
   FROM +devbox
@@ -126,6 +128,7 @@ ci-deploy:
   # To run manually:
   # FLY_API_TOKEN=$(flyctl tokens create deploy) earthly --allow-privileged --secret FLY_API_TOKEN +ci-deploy --COMMIT_SHA=$(git rev-parse HEAD)
   BUILD +ci-test
+  BUILD +test-generate-query-code
   ARG --required COMMIT_SHA
   ARG --required FLY_APP_NAME
   BUILD +app-deploy --COMMIT_SHA=$COMMIT_SHA --FLY_APP_NAME=$FLY_APP_NAME
