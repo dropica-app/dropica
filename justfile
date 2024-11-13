@@ -31,3 +31,16 @@ docker-run:
 
 ci:
   (git ls-files && git ls-files --others --exclude-standard) | entr -cnr earthly +ci-test
+
+
+benchmark:
+  export TMPFILE=$(mktemp)
+  echo $TMPFILE
+  cat <<EOF > $TMPFILE
+  wrk.method = "POST"
+  wrk.body   = '"foo"'
+  EOF
+
+  wrk -t10 -c400 -d20s -s $TMPFILE 'http://localhost:8081/RpcApi/registerDevice'
+  rm $TMPFILE
+

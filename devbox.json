@@ -12,6 +12,7 @@
     "flyctl@latest",
     "atlas@latest",
     "schemacrawler@latest",
+    "wrk@latest",
     "scalafmt@latest",
   ],
   "shell": {
