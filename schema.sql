@@ -1,4 +1,4 @@
-create table device_profile(
+create table device_profile (
   device_id integer primary key, -- rowid
   device_secret text not null unique,
   device_address text not null unique
@@ -27,6 +27,7 @@ create table message_history(
   at_location int references location(location_id),
   check ((on_device is null) <> (at_location is null))
 ) strict;
+create index idx_message_history_message_id_device_id on message_history(message_id, on_device);
 
 create table location(
   location_id integer primary key, -- rowid

@@ -8,7 +8,7 @@ trait RpcApi {
   def registerDevice(deviceSecret: String): IO[Unit]
 
   def getDeviceAddress: IO[String]
-  def getMessagesAtLocation(location: Location): IO[Vector[(Message, Location)]]
+  def getMessagesAtLocation(location: Location): IO[Vector[NearbyMessage]]
   def getMessagesOnDevice: IO[Vector[Message]]
 
   def createMessage(content: String, location: Location): IO[Boolean]
@@ -19,6 +19,8 @@ trait RpcApi {
   def addContact(targetDeviceAddress: String): IO[Boolean]
   def sendMessage(messageId: Int, deviceAddress: String): IO[Boolean]
 }
+
+case class NearbyMessage(message: Message, location: Location, seen: Boolean) derives ReadWriter
 
 case class Location(lat: Double, lon: Double, accuracy: Double, altitude: Double, altitudeAccuracy: Double) derives ReadWriter {
   def toWebMercator: WebMercatorLocation = {

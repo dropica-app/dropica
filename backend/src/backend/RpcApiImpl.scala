@@ -130,8 +130,8 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
       // you can only pick up a message, if it is close to your location
       magnum.transact(ds) {
         val message            = db.MessageRepo.findById(messageId).get
-        val messagesAtLocation = queryNearbyMessages(location)
-        if (messagesAtLocation.exists(_._1.messageId == messageId)) {
+        val messagesAtLocation = queryNearbyMessages(location, deviceProfile.deviceId)
+        if (messagesAtLocation.exists(_.message.messageId == messageId)) {
           db.MessageRepo.update(message.copy(onDevice = Some(deviceProfile.deviceId), atLocation = None))
           db.MessageHistoryRepo.insert(
             db.MessageHistory.Creator(messageId = message.messageId, onDevice = Some(deviceProfile.deviceId), atLocation = None)
@@ -173,9 +173,9 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
 
   val maxSearchRadiusMeters = 40_075 // circumference of earth
   val messageLimit          = 200
-  private def queryNearbyMessages(location: rpc.Location, searchRadiusMeters: Long = 500)(using
+  private def queryNearbyMessages(location: rpc.Location, deviceId: Int, searchRadiusMeters: Long = 500)(using
     DbCon
-  ): Vector[(rpc.Message, rpc.Location)] = {
+  ): Vector[rpc.NearbyMessage] = {
     val locationWebMercator = location.toWebMercator
     // TODO coordinate wrap around at date line
     val locations = sql"""
@@ -223,9 +223,13 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
       LIMIT ${messageLimit};
       """.query[db.Location].run()
 
-    val rpcLocations = locations.view
-      .flatMap(l => db.MessageRepo.findByIndexOnAtLocation(Some(l.locationId)).map(m => (m.to[rpc.Message], l.to[rpc.Location])))
-      .toVector
+    val rpcLocations = locations.view.flatMap { l =>
+      db.MessageRepo.findByIndexOnAtLocation(Some(l.locationId)).map { m =>
+        // TODO: val history = db.MessageHistoryRepo.findByIndexOnMessageIdOnDevice(m.messageId, Some(deviceId))
+        val history = db.MessageHistoryRepo.findByIndexOnMessageId(m.messageId).filter(_.onDevice == Some(deviceId))
+        rpc.NearbyMessage(m.to[rpc.Message], l.to[rpc.Location], history.nonEmpty)
+      }
+    }.toVector
 
     if (rpcLocations.nonEmpty || searchRadiusMeters > maxSearchRadiusMeters)
       // we got what we wanted
@@ -235,14 +239,14 @@ class RpcApiImpl(ds: DataSource, request: Request[IO]) extends rpc.RpcApi {
         s"searching at ${location.lat},${location.lon} with radius ${searchRadiusMeters}m only found ${rpcLocations.size} messages"
       )
       // if we didn't find enough messages in search radius, increase it
-      queryNearbyMessages(location, searchRadiusMeters * 2)
+      queryNearbyMessages(location, deviceId, searchRadiusMeters * 2)
     }
   }
 
-  def getMessagesAtLocation(location: rpc.Location): IO[Vector[(rpc.Message, rpc.Location)]] = withDevice(deviceProfile =>
+  def getMessagesAtLocation(location: rpc.Location): IO[Vector[rpc.NearbyMessage]] = withDevice(deviceProfile =>
     IO {
       magnum.transact(ds) {
-        queryNearbyMessages(location)
+        queryNearbyMessages(location, deviceProfile.deviceId)
       }
     }
   )
