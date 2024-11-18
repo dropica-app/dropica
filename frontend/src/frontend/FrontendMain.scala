@@ -289,24 +289,24 @@ def messagesNearby(refreshTrigger: VarEvent[Unit], locationEvents: RxEvent[rpc.L
             .map((_, deviceLocation))
             .map { (messages, deviceLocation) =>
               messages.sortBy { nearby => nearby.location.geodesicDistanceRangeTo(deviceLocation).swap }.map { nearby =>
-                  renderMessage(
-                    refreshTrigger,
-                    nearby.message,
-                    multiLine = false,
-                    messageLocation = Some(nearby.location),
-                    location = Some(deviceLocation),
-                    actions = Option.when(nearby.location.geodesicDistanceRangeTo(deviceLocation)._1 < 10)(
-                      slButton(
-                        "pick",
-                        onClick.stopPropagation.doEffect(
-                          lift[IO] {
-                            unlift(RpcClient.call.pickupMessage(nearby.message.messageId, deviceLocation).void)
-                            refreshTrigger.set(())
-                          }
-                        ),
-                      )
-                    ),
-                  )(marginTop := "8px")
+                renderMessage(
+                  refreshTrigger,
+                  nearby.message,
+                  multiLine = false,
+                  messageLocation = Some(nearby.location),
+                  location = Some(deviceLocation),
+                  actions = Option.when(nearby.location.geodesicDistanceRangeTo(deviceLocation)._1 < 10)(
+                    slButton(
+                      "pick",
+                      onClick.stopPropagation.doEffect(
+                        lift[IO] {
+                          unlift(RpcClient.call.pickupMessage(nearby.message.messageId, deviceLocation).void)
+                          refreshTrigger.set(())
+                        }
+                      ),
+                    )
+                  ),
+                )(marginTop := "8px")
               }
             }
         )
